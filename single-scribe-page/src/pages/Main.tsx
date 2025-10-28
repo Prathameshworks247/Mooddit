@@ -3,10 +3,96 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { LuSend } from "react-icons/lu";
+import { MdOutlineArrowOutward } from "react-icons/md";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+
+const data = [
+  { name: "Jan", uv: 4000, pv: 2400, amt: 2400 },
+  { name: "Feb", uv: 3000, pv: 1398, amt: 2210 },
+  { name: "Mar", uv: 2000, pv: 9800, amt: 2290 },
+  { name: "Apr", uv: 2780, pv: 3908, amt: 2000 },
+  { name: "May", uv: 1890, pv: 4800, amt: 2181 },
+  { name: "Jun", uv: 2390, pv: 3800, amt: 2500 },
+  { name: "Jul", uv: 3490, pv: 4300, amt: 2100 },
+];
+
+const posts = [
+  {
+    title: "very happy!",
+    url: "https://i.redd.it/z3up10n5gxxf1.jpeg",
+    selftext: "home tester is stepping up their game!",
+    created_utc: "2025-10-28T22:16:07",
+    score: 5,
+    subreddit: "freebietalk",
+    sentiment_label: "positive",
+    sentiment_score: 1,
+  },
+  {
+    title: "iPhone 17 Sage or White?",
+    url: "https://www.reddit.com/r/iphone/comments/1oin82g/iphone_17_sage_or_white/",
+    selftext: "Which one you would choose?",
+    created_utc: "2025-10-28T22:14:44",
+    score: 1,
+    subreddit: "iphone",
+    sentiment_label: "neutral",
+    sentiment_score: 0,
+  },
+  {
+    title: "very happy!",
+    url: "https://i.redd.it/z3up10n5gxxf1.jpeg",
+    selftext: "home tester is stepping up their game!",
+    created_utc: "2025-10-28T22:16:07",
+    score: 5,
+    subreddit: "freebietalk",
+    sentiment_label: "positive",
+    sentiment_score: 1,
+  },
+  {
+    title: "iPhone 17 Sage or White?",
+    url: "https://www.reddit.com/r/iphone/comments/1oin82g/iphone_17_sage_or_white/",
+    selftext: "Which one you would choose?",
+    created_utc: "2025-10-28T22:14:44",
+    score: 1,
+    subreddit: "iphone",
+    sentiment_label: "neutral",
+    sentiment_score: 0,
+  },
+  {
+    title: "very happy!",
+    url: "https://i.redd.it/z3up10n5gxxf1.jpeg",
+    selftext: "home tester is stepping up their game!",
+    created_utc: "2025-10-28T22:16:07",
+    score: 5,
+    subreddit: "freebietalk",
+    sentiment_label: "positive",
+    sentiment_score: 1,
+  },
+  {
+    title: "iPhone 17 Sage or White?",
+    url: "https://www.reddit.com/r/iphone/comments/1oin82g/iphone_17_sage_or_white/",
+    selftext: "Which one you would choose?",
+    created_utc: "2025-10-28T22:14:44",
+    score: 1,
+    subreddit: "iphone",
+    sentiment_label: "neutral",
+    sentiment_score: 0,
+  },
+];
 
 interface Message {
+  id: string;
   role: "user" | "assistant";
   content: string;
+  // posts?: Post[];
 }
 
 const Main = () => {
@@ -16,7 +102,14 @@ const Main = () => {
   const handleSend = () => {
     if (!input.trim()) return;
 
-    setMessages([...messages, { role: "user", content: input }]);
+    setMessages([
+      ...messages,
+      {
+        id: crypto.randomUUID(),
+        role: "user",
+        content: input,
+      },
+    ]);
     setInput("");
 
     // Simulate AI response
@@ -24,6 +117,7 @@ const Main = () => {
       setMessages((prev) => [
         ...prev,
         {
+          id: crypto.randomUUID(),
           role: "assistant",
           content:
             "This is a simulated response. Connect to an AI service to enable real conversations.",
@@ -115,14 +209,75 @@ function Message({
           </div>
         </div>
       ) : (
-        <div className="flex justify-start">
+        <div className="flex flex-col justify-start items-start gap-8">
           <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-secondary text-secondary-foreground">
             <p className="text-[15px] whitespace-pre-wrap">{content}</p>
+          </div>
+          <button className="text-base text-blue-700 hover:text-blue-500 duration-150">
+            Show Dashboard
+          </button>
+          <div className="w-full flex flex-col gap-4">
+            <p className="">Related Reddit Posts:</p>
+            <div className="w-full overflow-x-auto scrollbar-hide">
+              <div className="flex flex-row gap-6">
+                {posts.map((post, index) => (
+                  <a href={post.url} target="_blank" key={index}>
+                    <div className="relative flex flex-col justify-between bg-[#383838] w-[250px] h-[150px] rounded-2xl py-4 border border-solid border-gray-400">
+                      <p className="text-lg text-white font-semibold line-clamp-2 pl-4 pr-8">
+                        {post.title}
+                      </p>
+                      <p className="text-sm text-white font-light line-clamp-2 px-4">
+                        {post.selftext}
+                      </p>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}
     </>
   );
 }
+
+{
+  /* <a href={posts[0].url} target="_blank">
+  <div className="relative flex flex-col justify-between bg-[#383838] w-[250px] h-[150px] rounded-2xl py-4 border border-solid border-gray-400">
+    <p className="text-lg text-white font-semibold line-clamp-2 pl-4 pr-8">
+      {posts[0].title}
+    </p>
+    <p className="text-sm text-white font-light line-clamp-2 px-4">
+      {posts[0].selftext}
+    </p>
+  </div>
+</a> */
+}
+
+const SimpleLineChart = () => {
+  return (
+    <div style={{ width: "100%", height: 300 }}>
+      <ResponsiveContainer>
+        <LineChart
+          data={data}
+          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" />
+          <YAxis />
+          <Tooltip />
+          <Legend />
+          <Line
+            type="monotone"
+            dataKey="pv"
+            stroke="#8884d8"
+            activeDot={{ r: 8 }}
+          />
+          <Line type="monotone" dataKey="uv" stroke="#82ca9d" />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
 
 export default Main;

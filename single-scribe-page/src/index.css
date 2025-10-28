@@ -96,3 +96,12 @@ All colors MUST be HSL.
 .animate-gradient {
   animation: gradient 6s linear infinite;
 }
+
+/* Hide scrollbar for Chrome, Safari, and Edge */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;             /* Chrome, Safari */
+}
