@@ -1,19 +1,29 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { LuSend } from "react-icons/lu";
 import { Sidebar } from "@/components/used/sidebar";
-import { 
-  MessageSquare, 
-  ThumbsUp, 
+import {
+  MessageSquare,
+  ThumbsUp,
   ExternalLink,
   TrendingUp,
   Loader2,
-  Sparkles
+  Sparkles,
+  TrendingDown,
+  Activity,
+  Clock,
+  Zap,
 } from "lucide-react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -37,7 +47,41 @@ interface Post {
   created_utc: string;
 }
 
+interface PredictionPoint {
+  timestamp: string;
+  hours_ahead: number;
+  predicted_sentiment_score: number;
+  predicted_sentiment_ratio: number;
+  predicted_sentiment: string;
+  confidence: number;
+}
+
+interface HistoricalSummary {
+  total_posts_analyzed: number;
+  time_range_hours: number;
+  current_sentiment: {
+    score: number;
+    ratio: number;
+  };
+  average_sentiment: {
+    score: number;
+    ratio: number;
+  };
+  trend: string;
+}
+
+interface PredictionData {
+  query: string;
+  predictions: PredictionPoint[];
+  historical_summary: HistoricalSummary;
+  prediction_method: string;
+  interval_hours: number;
+  generated_at: string;
+}
+
 const Main = () => {
+  const singleReqRef = useRef<boolean>(false);
+
   const { state } = useLocation();
   const prompt = state.prompt ?? "";
 
@@ -51,6 +95,11 @@ const Main = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
+  const [showPredictionModal, setShowPredictionModal] = useState(false);
+  const [predictionData, setPredictionData] = useState<PredictionData | null>(
+    null
+  );
+  const [loadingPrediction, setLoadingPrediction] = useState(false);
 
   // const handleSend = () => {
   //   if (!input.trim()) return;
@@ -120,7 +169,10 @@ const Main = () => {
         setLoading(false);
       }
     };
-    fetchData();
+    if (!singleReqRef.current) {
+      fetchData();
+      singleReqRef.current = true;
+    }
   }, [prompt]);
 
   const handleSend = async () => {
@@ -155,6 +207,26 @@ const Main = () => {
     }
   };
 
+  const handlePredict = async () => {
+    setLoadingPrediction(true);
+    setShowPredictionModal(true);
+    try {
+      const response = await axios.post("http://localhost:8000/api/predict", {
+        query: prompt,
+        time_window_hours: 48,
+        hours_ahead: 12,
+        interval_hours: 3,
+        method: "hybrid",
+      });
+      setPredictionData(response.data as PredictionData);
+    } catch (e) {
+      console.error("Prediction error:", e);
+      setPredictionData(null);
+    } finally {
+      setLoadingPrediction(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-black">
       <header className="flex flex-row justify-between items-center border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm px-6 py-4 sticky top-0 z-10">
@@ -163,11 +235,24 @@ const Main = () => {
             <MessageSquare className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-white">Sentiment Analysis</h1>
-            <p className="text-xs text-gray-400">Ask me anything about {prompt}</p>
+            <h1 className="text-lg font-semibold text-white">
+              Sentiment Analysis
+            </h1>
+            <p className="text-xs text-gray-400">
+              Ask me anything about {prompt}
+            </p>
           </div>
         </div>
-        <Sidebar />
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={handlePredict}
+            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg"
+          >
+            <Zap className="h-4 w-4 mr-2" />
+            Predict Trends
+          </Button>
+          <Sidebar />
+        </div>
       </header>
       <ScrollArea className="flex-1 px-4">
         <div className="max-w-4xl mx-auto py-8 space-y-6">
@@ -197,7 +282,9 @@ const Main = () => {
                 <div className="flex justify-start">
                   <div className="flex items-center gap-2 bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-2xl px-4 py-3">
                     <Loader2 className="h-4 w-4 animate-spin text-orange-500" />
-                    <span className="text-sm text-gray-300">Analyzing sentiment...</span>
+                    <span className="text-sm text-gray-300">
+                      Analyzing sentiment...
+                    </span>
                   </div>
                 </div>
               )}
@@ -228,6 +315,251 @@ const Main = () => {
           </p>
         </div>
       </div>
+
+      {/* Prediction Modal */}
+      <Dialog open={showPredictionModal} onOpenChange={setShowPredictionModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-gray-950 border-gray-800 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              Sentiment Predictions for "{prompt}"
+            </DialogTitle>
+          </DialogHeader>
+
+          {loadingPrediction ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+              <Loader2 className="h-12 w-12 animate-spin text-purple-500" />
+              <p className="text-gray-400">
+                Analyzing trends and generating predictions...
+              </p>
+            </div>
+          ) : predictionData ? (
+            <div className="space-y-6">
+              {/* Historical Summary */}
+              <Card className="bg-gray-900/50 border-gray-800">
+                <CardContent className="p-6 space-y-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Activity className="h-5 w-5 text-purple-500" />
+                    <h3 className="text-lg font-semibold text-white">
+                      Historical Summary
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-gray-800/50 rounded-lg p-3">
+                      <p className="text-xs text-gray-400 mb-1">
+                        Posts Analyzed
+                      </p>
+                      <p className="text-2xl font-bold text-white">
+                        {predictionData.historical_summary.total_posts_analyzed}
+                      </p>
+                    </div>
+
+                    <div className="bg-gray-800/50 rounded-lg p-3">
+                      <p className="text-xs text-gray-400 mb-1">Time Range</p>
+                      <p className="text-2xl font-bold text-white">
+                        {predictionData.historical_summary.time_range_hours.toFixed(
+                          1
+                        )}
+                        h
+                      </p>
+                    </div>
+
+                    <div className="bg-gray-800/50 rounded-lg p-3">
+                      <p className="text-xs text-gray-400 mb-1">
+                        Current Score
+                      </p>
+                      <p
+                        className={`text-2xl font-bold ${
+                          predictionData.historical_summary.current_sentiment
+                            .score > 0
+                            ? "text-green-400"
+                            : predictionData.historical_summary
+                                .current_sentiment.score < 0
+                            ? "text-red-400"
+                            : "text-gray-400"
+                        }`}
+                      >
+                        {predictionData.historical_summary.current_sentiment.score.toFixed(
+                          3
+                        )}
+                      </p>
+                    </div>
+
+                    <div className="bg-gray-800/50 rounded-lg p-3">
+                      <p className="text-xs text-gray-400 mb-1">Trend</p>
+                      <div className="flex items-center gap-2">
+                        {predictionData.historical_summary.trend ===
+                        "increasing" ? (
+                          <TrendingUp className="h-5 w-5 text-green-400" />
+                        ) : predictionData.historical_summary.trend ===
+                          "decreasing" ? (
+                          <TrendingDown className="h-5 w-5 text-red-400" />
+                        ) : (
+                          <Activity className="h-5 w-5 text-gray-400" />
+                        )}
+                        <p className="text-sm font-semibold text-white capitalize">
+                          {predictionData.historical_summary.trend}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Predictions */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Zap className="h-5 w-5 text-purple-500" />
+                  <h3 className="text-lg font-semibold text-white">
+                    Future Predictions
+                  </h3>
+                  <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30">
+                    {predictionData.prediction_method}
+                  </Badge>
+                </div>
+
+                {predictionData.predictions.map((pred, index) => {
+                  const isPositive = pred.predicted_sentiment === "positive";
+                  const isNegative = pred.predicted_sentiment === "negative";
+                  const confidencePercent = Math.round(pred.confidence * 100);
+
+                  return (
+                    <Card
+                      key={index}
+                      className="bg-gray-900/50 border-gray-800 hover:border-purple-500/50 transition-all"
+                    >
+                      <CardContent className="p-5">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 space-y-3">
+                            {/* Header */}
+                            <div className="flex items-center gap-3">
+                              <Clock className="h-4 w-4 text-gray-400" />
+                              <span className="text-sm text-gray-400">
+                                {new Date(pred.timestamp).toLocaleString(
+                                  "en-US",
+                                  {
+                                    month: "short",
+                                    day: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }
+                                )}
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className="bg-gray-800 border-gray-700"
+                              >
+                                +{pred.hours_ahead}h
+                              </Badge>
+                            </div>
+
+                            {/* Sentiment */}
+                            <div className="flex items-center gap-4">
+                              <div>
+                                <p className="text-xs text-gray-400 mb-1">
+                                  Predicted Sentiment
+                                </p>
+                                <Badge
+                                  className={
+                                    isPositive
+                                      ? "bg-green-500/20 text-green-300 border-green-500/30 text-base"
+                                      : isNegative
+                                      ? "bg-red-500/20 text-red-300 border-red-500/30 text-base"
+                                      : "bg-gray-500/20 text-gray-300 border-gray-500/30 text-base"
+                                  }
+                                >
+                                  {pred.predicted_sentiment.toUpperCase()}
+                                </Badge>
+                              </div>
+
+                              <div>
+                                <p className="text-xs text-gray-400 mb-1">
+                                  Score
+                                </p>
+                                <p
+                                  className={
+                                    isPositive
+                                      ? "text-xl font-bold text-green-400"
+                                      : isNegative
+                                      ? "text-xl font-bold text-red-400"
+                                      : "text-xl font-bold text-gray-400"
+                                  }
+                                >
+                                  {pred.predicted_sentiment_score > 0
+                                    ? "+"
+                                    : ""}
+                                  {pred.predicted_sentiment_score.toFixed(3)}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Confidence */}
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <p className="text-xs text-gray-400">
+                                  Confidence
+                                </p>
+                                <p className="text-xs font-semibold text-white">
+                                  {confidencePercent}%
+                                </p>
+                              </div>
+                              <div className="w-full bg-gray-800 rounded-full h-2">
+                                <div
+                                  className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all"
+                                  style={{ width: `${confidencePercent}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              {/* Footer Info */}
+              <div className="bg-gray-900/30 border border-gray-800 rounded-lg p-4">
+                <div className="flex items-start gap-2">
+                  <Sparkles className="h-4 w-4 text-purple-400 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-gray-300">
+                      These predictions are based on analyzing{" "}
+                      <span className="font-semibold text-white">
+                        {predictionData.historical_summary.total_posts_analyzed}{" "}
+                        posts
+                      </span>{" "}
+                      over the last{" "}
+                      <span className="font-semibold text-white">
+                        {predictionData.historical_summary.time_range_hours.toFixed(
+                          1
+                        )}{" "}
+                        hours
+                      </span>{" "}
+                      using the{" "}
+                      <span className="font-semibold text-purple-400">
+                        {predictionData.prediction_method}
+                      </span>{" "}
+                      method.
+                    </p>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Generated at{" "}
+                      {new Date(predictionData.generated_at).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+              <TrendingDown className="h-12 w-12 text-red-500" />
+              <p className="text-gray-400">
+                Failed to generate predictions. Please try again.
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -271,31 +603,55 @@ function Message({
               remarkPlugins={[remarkGfm]}
               components={{
                 h1: ({ node, ...props }) => (
-                  <h1 className="text-2xl font-bold mb-4 text-white" {...props} />
+                  <h1
+                    className="text-2xl font-bold mb-4 text-white"
+                    {...props}
+                  />
                 ),
                 h2: ({ node, ...props }) => (
-                  <h2 className="text-xl font-semibold mb-3 text-white" {...props} />
+                  <h2
+                    className="text-xl font-semibold mb-3 text-white"
+                    {...props}
+                  />
                 ),
                 h3: ({ node, ...props }) => (
-                  <h3 className="text-lg font-medium mb-2 text-gray-200" {...props} />
+                  <h3
+                    className="text-lg font-medium mb-2 text-gray-200"
+                    {...props}
+                  />
                 ),
                 p: ({ node, ...props }) => (
-                  <p className="text-[15px] mb-2 text-gray-300 leading-relaxed" {...props} />
+                  <p
+                    className="text-[15px] mb-2 text-gray-300 leading-relaxed"
+                    {...props}
+                  />
                 ),
                 ul: ({ node, ...props }) => (
-                  <ul className="list-disc list-inside mb-2 space-y-1" {...props} />
+                  <ul
+                    className="list-disc list-inside mb-2 space-y-1"
+                    {...props}
+                  />
                 ),
                 ol: ({ node, ...props }) => (
-                  <ol className="list-decimal list-inside mb-2 space-y-1" {...props} />
+                  <ol
+                    className="list-decimal list-inside mb-2 space-y-1"
+                    {...props}
+                  />
                 ),
                 li: ({ node, ...props }) => (
                   <li className="text-[15px] text-gray-300" {...props} />
                 ),
                 a: ({ node, ...props }) => (
-                  <a className="text-orange-400 hover:text-orange-300 hover:underline" {...props} />
+                  <a
+                    className="text-orange-400 hover:text-orange-300 hover:underline"
+                    {...props}
+                  />
                 ),
                 code: ({ node, ...props }) => (
-                  <code className="bg-gray-900 px-1.5 py-0.5 rounded text-orange-400" {...props} />
+                  <code
+                    className="bg-gray-900 px-1.5 py-0.5 rounded text-orange-400"
+                    {...props}
+                  />
                 ),
                 strong: ({ node, ...props }) => (
                   <strong className="text-white font-semibold" {...props} />
@@ -309,21 +665,30 @@ function Message({
             <div className="w-full flex flex-col gap-4">
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-orange-500" />
-                <h3 className="text-lg font-semibold text-white">Related Reddit Posts</h3>
-                <Badge variant="outline" className="bg-gray-800 text-gray-300 border-gray-700">
+                <h3 className="text-lg font-semibold text-white">
+                  Related Reddit Posts
+                </h3>
+                <Badge
+                  variant="outline"
+                  className="bg-gray-800 text-gray-300 border-gray-700"
+                >
                   {posts.length} posts
                 </Badge>
               </div>
               <div className="w-full overflow-x-auto scrollbar-hide">
                 <div className="flex flex-row gap-4 pb-2">
                   {posts.map((post, index) => (
-                    <Card 
+                    <Card
                       key={index}
                       className="flex-shrink-0 w-[320px] bg-gray-800/50 backdrop-blur-sm border-gray-700 hover:border-orange-500/50 transition-all hover:shadow-lg hover:shadow-orange-500/10 group"
                     >
                       <CardContent className="p-5 flex flex-col h-full gap-3">
                         <div className="flex items-start justify-between gap-2">
-                          <Badge className={`${getSentimentColor(post.sentiment)} border text-xs capitalize`}>
+                          <Badge
+                            className={`${getSentimentColor(
+                              post.sentiment
+                            )} border text-xs capitalize`}
+                          >
                             {post.sentiment}
                           </Badge>
                           <div className="flex items-center gap-1 text-xs text-gray-400">
@@ -331,23 +696,23 @@ function Message({
                             <span>{post.score}</span>
                           </div>
                         </div>
-                        
-                        <a 
-                          href={post.url} 
-                          target="_blank" 
+
+                        <a
+                          href={post.url}
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="flex flex-col gap-2 flex-1"
                         >
                           <h4 className="text-base text-white font-semibold line-clamp-3 leading-snug group-hover:text-orange-400 transition-colors">
                             {post.title}
                           </h4>
-                          
+
                           {post.selftext && (
                             <p className="text-sm text-gray-400 line-clamp-3 flex-1">
                               {post.selftext}
                             </p>
                           )}
-                          
+
                           <div className="flex items-center gap-1 text-xs text-orange-500 font-medium mt-auto">
                             <span>Read on Reddit</span>
                             <ExternalLink className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />

@@ -9,6 +9,7 @@ from src.reddit_scraper import fetch_reddit_posts
 from src.sentiment_analysis import analyze_sentiment
 from src.trending_discovery import get_trending_by_category, get_trending_posts_with_scores
 from src.topic_extractor import extract_top_trending_topics
+from src.sentiment_predictor import predict_sentiment
 from dotenv import load_dotenv
 import google.generativeai as genai
 
@@ -204,6 +205,38 @@ class TrendingResponse(BaseModel):
     time_window_hours: int
     category: str
 
+# Prediction-specific models
+class PredictionPoint(BaseModel):
+    timestamp: str = Field(..., description="Predicted timestamp")
+    hours_ahead: int = Field(..., description="Hours ahead from current time")
+    predicted_sentiment_score: float = Field(..., description="Predicted sentiment score (-1 to 1)")
+    predicted_sentiment_ratio: float = Field(..., description="Predicted sentiment ratio")
+    predicted_sentiment: str = Field(..., description="Predicted overall sentiment")
+    confidence: float = Field(..., description="Prediction confidence (0-1)")
+
+class HistoricalSummary(BaseModel):
+    total_posts_analyzed: int
+    time_range_hours: float
+    current_sentiment: Dict[str, float]
+    average_sentiment: Dict[str, float]
+    trend: str
+
+class PredictionRequest(BaseModel):
+    query: str = Field(..., description="Topic to analyze", min_length=1)
+    limit: int = Field(default=300, description="Number of posts to fetch", ge=10, le=1000)
+    time_window_hours: int = Field(default=48, description="Historical time window in hours", ge=6, le=168)
+    hours_ahead: int = Field(default=12, description="Hours to predict ahead", ge=3, le=48)
+    interval_hours: int = Field(default=3, description="Interval for predictions in hours", ge=1, le=6)
+    method: str = Field(default="hybrid", description="Prediction method: linear, moving_average, or hybrid")
+
+class PredictionResponse(BaseModel):
+    query: str
+    predictions: List[PredictionPoint]
+    historical_summary: HistoricalSummary
+    prediction_method: str
+    interval_hours: int
+    generated_at: str
+
 @app.get("/")
 async def root():
     """Root endpoint with API information"""
@@ -215,6 +248,7 @@ async def root():
             "charts": "/api/charts (POST) - Chart data optimized for Recharts",
             "rag": "/api/rag (POST) - Ask questions about Reddit sentiment data (AI-powered)",
             "trending": "/api/trending/analyze (POST) - Discover and analyze trending topics",
+            "predict": "/api/predict (POST) - Predict future sentiment trends",
             "health": "/health (GET) - Health check"
         },
         "features": {
@@ -222,7 +256,8 @@ async def root():
             "time_series_charts": True,
             "rag_qa": gemini_model is not None,
             "component_analysis": gemini_model is not None,
-            "trending_discovery": True
+            "trending_discovery": True,
+            "sentiment_prediction": True
         },
         "gemini_configured": gemini_model is not None
     }
@@ -1007,6 +1042,139 @@ Only return the JSON array, no other text."""
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.post("/api/predict", response_model=PredictionResponse)
+async def predict_sentiment_endpoint(request: PredictionRequest):
+    """
+    Predict future sentiment trends based on historical data
+    
+    Uses time-series analysis to forecast sentiment scores for the next few hours.
+    Supports three prediction methods:
+    - **linear**: Linear regression on historical trend
+    - **moving_average**: Weighted moving average with trend detection
+    - **hybrid**: Combination of both methods (default, most reliable)
+    
+    Parameters:
+    - **query**: Topic to analyze
+    - **limit**: Number of historical posts to fetch (10-1000)
+    - **time_window_hours**: Historical time window (6-168 hours)
+    - **hours_ahead**: Hours to predict into the future (3-48 hours)
+    - **interval_hours**: Prediction interval (1-6 hours)
+    - **method**: Prediction method (linear/moving_average/hybrid)
+    
+    Returns predictions with:
+    - Sentiment scores and trends
+    - Confidence levels
+    - Historical summary for context
+    """
+    try:
+        # Step 1: Fetch and prepare historical data
+        print(f"Fetching posts for query: {request.query}")
+        posts_df = fetch_reddit_posts(request.query, limit=request.limit)
+        
+        if posts_df.empty:
+            raise HTTPException(
+                status_code=404, 
+                detail="No posts found for the given query"
+            )
+        
+        # Convert timestamps
+        posts_df["created_utc"] = pd.to_datetime(posts_df["created_utc"], unit="s")
+        
+        # Filter to time window
+        time_cutoff = datetime.utcnow() - timedelta(hours=request.time_window_hours)
+        posts_df = posts_df[posts_df["created_utc"] >= time_cutoff]
+        
+        if posts_df.empty:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No posts found in the last {request.time_window_hours} hours"
+            )
+        
+        if len(posts_df) < 10:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient data for prediction. Only {len(posts_df)} posts found. Need at least 10."
+            )
+        
+        print(f"Found {len(posts_df)} posts in the time window")
+        
+        # Step 2: Perform sentiment analysis
+        print("Analyzing sentiment...")
+        sentiment_results = posts_df["title"].apply(analyze_sentiment)
+        posts_df["sentiment"], posts_df["sentiment_score"] = zip(*sentiment_results)
+        
+        # Normalize sentiment labels
+        def normalize_sentiment(label):
+            label_lower = str(label).lower()
+            if label_lower in ["positive", "label_2"]:
+                return "positive"
+            elif label_lower in ["negative", "label_0"]:
+                return "negative"
+            else:
+                return "neutral"
+        
+        posts_df["sentiment_normalized"] = posts_df["sentiment"].apply(normalize_sentiment)
+        
+        # Convert sentiment to numeric for calculations
+        def sentiment_to_score(sentiment):
+            if sentiment == "positive":
+                return 1.0
+            elif sentiment == "negative":
+                return -1.0
+            else:
+                return 0.0
+        
+        posts_df["sentiment_score_numeric"] = posts_df["sentiment_normalized"].apply(sentiment_to_score)
+        
+        # Add datetime column for prediction
+        posts_df["created_datetime"] = posts_df["created_utc"]
+        posts_df["total_posts"] = 1  # For aggregation
+        
+        print(f"Sentiment distribution: {posts_df['sentiment_normalized'].value_counts().to_dict()}")
+        
+        # Step 3: Generate predictions
+        print(f"Generating predictions using {request.method} method...")
+        prediction_result = predict_sentiment(
+            df=posts_df,
+            hours_ahead=request.hours_ahead,
+            interval_hours=request.interval_hours,
+            method=request.method
+        )
+        
+        if 'error' in prediction_result:
+            raise HTTPException(
+                status_code=400,
+                detail=prediction_result['error']
+            )
+        
+        # Step 4: Format response
+        predictions = [
+            PredictionPoint(**pred) for pred in prediction_result['predictions']
+        ]
+        
+        historical_summary = HistoricalSummary(**prediction_result['historical_summary'])
+        
+        print(f"Generated {len(predictions)} prediction points")
+        
+        return PredictionResponse(
+            query=request.query,
+            predictions=predictions,
+            historical_summary=historical_summary,
+            prediction_method=prediction_result['prediction_method'],
+            interval_hours=prediction_result['interval_hours'],
+            generated_at=datetime.utcnow().isoformat()
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Prediction error: {str(e)}"
+        )
 
 if __name__ == "__main__":
     import uvicorn

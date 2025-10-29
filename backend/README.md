@@ -14,6 +14,7 @@ A FastAPI-based backend service for analyzing sentiment of Reddit posts using tr
 - 🔧 **NEW**: Component-wise sentiment analysis (e.g., camera, battery, price)
 - 💬 **NEW**: Conversation context for multi-turn Q&A
 - 🔥 **NEW**: Automatic trending topics discovery and analysis
+- 🔮 **NEW**: Sentiment prediction with time-series forecasting
 
 ## Installation
 
@@ -422,21 +423,115 @@ curl -X POST "http://localhost:8000/api/trending/analyze" \
 - **Full Guide**: [`TRENDING_TOPICS.md`](./TRENDING_TOPICS.md)
 - **Test Script**: `python test_trending.py`
 
+## Sentiment Prediction 🔮
+
+Predict future sentiment trends using time-series analysis and machine learning!
+
+### Quick Start
+
+```bash
+curl -X POST "http://localhost:8000/api/predict" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "iPhone 17",
+    "time_window_hours": 48,
+    "hours_ahead": 12,
+    "interval_hours": 3,
+    "method": "hybrid"
+  }'
+```
+
+### What It Does
+
+1. **Analyzes** historical sentiment patterns from Reddit posts
+2. **Identifies** trends in sentiment over time
+3. **Predicts** how sentiment will likely change in the next few hours
+4. **Calculates** confidence levels for each prediction
+
+### Prediction Methods
+
+- **`linear`**: Linear regression on historical trends
+- **`moving_average`**: Weighted average with trend detection
+- **`hybrid`**: Combination of both (recommended)
+
+### Example Response
+
+```json
+{
+  "query": "iPhone 17",
+  "predictions": [
+    {
+      "timestamp": "2025-10-29T15:00:00",
+      "hours_ahead": 3,
+      "predicted_sentiment_score": 0.145,
+      "predicted_sentiment": "positive",
+      "confidence": 0.82
+    }
+  ],
+  "historical_summary": {
+    "total_posts_analyzed": 248,
+    "time_range_hours": 47.5,
+    "current_sentiment": {
+      "score": 0.125,
+      "ratio": 0.105
+    },
+    "trend": "increasing"
+  },
+  "prediction_method": "hybrid"
+}
+```
+
+### Parameters
+
+| Parameter | Default | Range | Description |
+|-----------|---------|-------|-------------|
+| `query` | *required* | - | Topic to analyze |
+| `time_window_hours` | 48 | 6-168 | Historical data window |
+| `hours_ahead` | 12 | 3-48 | Prediction horizon |
+| `interval_hours` | 3 | 1-6 | Prediction intervals |
+| `method` | hybrid | - | Prediction algorithm |
+
+### Use Cases
+
+- 📈 **Product Launch Monitoring**: Predict sentiment evolution after announcements
+- 🎮 **Event Impact Analysis**: Forecast sentiment during major events
+- 💼 **Brand Reputation**: Track long-term sentiment trends
+- 📊 **Quick Trend Check**: Fast predictions for volatile topics
+
+### Features
+
+- ✅ Multiple prediction algorithms
+- ✅ Confidence scoring
+- ✅ Historical trend analysis
+- ✅ Customizable prediction horizons
+- ✅ Handles sparse data gracefully
+
+### Documentation & Testing
+
+- **Full API Guide**: [`PREDICTION_API.md`](./PREDICTION_API.md)
+- **Test Script**: `python test_prediction.py`
+
 ## Project Structure
 
 ```
 backend/
-├── main.py                 # FastAPI application
-├── requirements.txt        # Python dependencies
-├── README.md              # This file
+├── main.py                      # FastAPI application
+├── requirements.txt             # Python dependencies
+├── README.md                    # This file
 ├── src/
 │   ├── __init__.py
-│   ├── reddit_scraper.py  # Reddit API scraper
-│   ├── sentiment_analysis.py  # Sentiment analysis model
-│   └── utils.py           # Utility functions
-└── data/
-    ├── processed/         # Analyzed data (CSV exports)
-    └── raw/              # Raw scraped data
+│   ├── reddit_scraper.py        # Reddit API scraper
+│   ├── sentiment_analysis.py   # Sentiment analysis model
+│   ├── sentiment_predictor.py  # Time-series prediction
+│   ├── trending_discovery.py   # Trending topics discovery
+│   ├── topic_extractor.py      # Topic extraction & ranking
+│   └── utils.py                # Utility functions
+├── data/
+│   ├── processed/              # Analyzed data (CSV exports)
+│   └── raw/                    # Raw scraped data
+├── test_prediction.py          # Test prediction API
+├── test_trending.py            # Test trending API
+└── PREDICTION_API.md           # Prediction API docs
 ```
 
 ## Technologies Used
@@ -447,6 +542,7 @@ backend/
 - **Transformers**: Hugging Face transformer models
 - **RoBERTa**: State-of-the-art sentiment analysis model
 - **Google Gemini**: Advanced LLM for RAG and component analysis
+- **scikit-learn**: Machine learning for sentiment prediction
 - **Uvicorn**: Lightning-fast ASGI server
 
 ## CORS Configuration
