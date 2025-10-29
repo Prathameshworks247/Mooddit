@@ -124,10 +124,18 @@ class RAGRequest(BaseModel):
     time_window_hours: int = Field(default=48, description="Time window in hours", ge=1, le=168)
     include_context: bool = Field(default=True, description="Include source posts in response")
 
+class ComponentSentiment(BaseModel):
+    component: str = Field(..., description="Component or aspect name")
+    sentiment: str = Field(..., description="Overall sentiment (positive/negative/neutral/mixed)")
+    confidence: str = Field(..., description="Confidence level (high/medium/low)")
+    summary: str = Field(..., description="Brief summary of sentiment")
+    mention_count: int = Field(..., description="Number of posts mentioning this component")
+
 class SourcePost(BaseModel):
     title: str
     url: str
     sentiment: str
+    selftext: str
     score: int
     created_utc: str
 
@@ -138,6 +146,7 @@ class RAGResponse(BaseModel):
     confidence: str
     total_posts_analyzed: int
     sentiment_summary: SentimentSummary
+    component_analysis: Optional[List[ComponentSentiment]] = None
     time_range: str
     source_posts: Optional[List[SourcePost]] = None
     model_used: str
@@ -217,7 +226,7 @@ async def analyze_sentiment_endpoint(request: AnalysisRequest):
             end=datetime.utcnow(), 
             freq=f"{request.interval_hours}H"
         )
-
+        
         grouped_data = []
         for i in range(len(time_bins) - 1):
             start, end = time_bins[i], time_bins[i + 1]
@@ -588,7 +597,8 @@ async def ask_question_about_sentiment(request: RAGRequest):
         context = "\n".join(context_parts)
         
         # Step 4: Generate answer using Gemini
-        prompt = f"""You are a Reddit sentiment analysis assistant. Based on the following Reddit data, please answer the user's question concisely and accurately.
+        # Enhanced prompt for component-wise analysis
+        prompt = f"""You are a Reddit sentiment analysis assistant. Based on the following Reddit data, please answer the user's question with detailed component-wise sentiment analysis.
 
 {context}
 
@@ -596,16 +606,55 @@ User's Question: {request.question}
 
 Please provide:
 1. A clear, direct answer to the question
-2. Support your answer with specific examples from the posts
-3. Mention relevant sentiment patterns
-4. Keep your response concise (2-3 paragraphs max)
+2. Identify key components/aspects being discussed (e.g., for "iPhone 17": camera, battery, display, price, design, performance, etc.)
+3. For each component, analyze the sentiment and provide specific examples
+4. Support your analysis with mentions from the posts
+5. Keep your main response concise (2-3 paragraphs)
+
+Then, provide a component breakdown in this JSON format at the end:
+
+COMPONENT_ANALYSIS:
+[
+  {{
+    "component": "component_name",
+    "sentiment": "positive/negative/neutral/mixed",
+    "confidence": "high/medium/low",
+    "summary": "brief summary of sentiment for this component",
+    "mention_count": number_of_mentions
+  }}
+]
 
 Answer:"""
         
         try:
             response = gemini_model.generate_content(prompt)
-            answer = response.text
+            full_response = response.text
             confidence = "high" if len(sample_posts) >= 20 else "medium" if len(sample_posts) >= 10 else "low"
+            
+            # Parse component analysis from response
+            component_analysis = None
+            answer = full_response
+            
+            if "COMPONENT_ANALYSIS:" in full_response:
+                parts = full_response.split("COMPONENT_ANALYSIS:")
+                answer = parts[0].strip()
+                
+                try:
+                    import json
+                    import re
+                    # Extract JSON array from the response
+                    json_match = re.search(r'\[(.*?)\]', parts[1], re.DOTALL)
+                    if json_match:
+                        json_str = '[' + json_match.group(1) + ']'
+                        components_data = json.loads(json_str)
+                        component_analysis = [
+                            ComponentSentiment(**comp) for comp in components_data
+                        ]
+                except Exception as parse_error:
+                    # If parsing fails, continue without component analysis
+                    print(f"Could not parse component analysis: {parse_error}")
+                    pass
+            
         except Exception as e:
             raise HTTPException(
                 status_code=500, 
@@ -620,6 +669,7 @@ Answer:"""
                     title=row["title"],
                     url=row["url"],
                     sentiment=row["sentiment_normalized"],
+                    selftext=row["selftext"],
                     score=int(row["score"]),
                     created_utc=row["created_utc"].isoformat()
                 )
@@ -638,9 +688,10 @@ Answer:"""
             confidence=confidence,
             total_posts_analyzed=len(filtered_df),
             sentiment_summary=sentiment_summary,
+            component_analysis=component_analysis,
             time_range=time_range,
             source_posts=source_posts,
-            model_used="gemini-1.5-flash-latest"
+            model_used="gemini-2.0-flash-exp"
         )
     
     except HTTPException:
