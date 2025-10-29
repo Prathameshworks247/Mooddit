@@ -576,7 +576,7 @@ interface PredictionResponse {
 
 ## 🐛 Troubleshooting
 
-### Backend Issues
+### Backend Issue
 
 **Issue**: `ModuleNotFoundError: No module named 'google.generativeai'`
 ```bash
