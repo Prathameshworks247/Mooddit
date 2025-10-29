@@ -5,9 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FaArrowUpLong } from "react-icons/fa6";
 import { TrendingUp, BarChart3, MessageSquare } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const Index = () => {
+  const navigate = useNavigate();
+
   const [prompt, setPrompt] = useState("");
+
+  const handleSubmit = () => {
+    navigate("/main", { state: { prompt: prompt } });
+  };
 
   return (
     <main className="min-h-screen flex items-center justify-center p-4 sm:p-6 md:p-8">
@@ -34,7 +41,10 @@ const Index = () => {
               className="pl-5 pr-10 py-3 resize-none text-sm sm:text-base md:text-lg bg-card/50 backdrop-blur-xl border-border/50 rounded-xl transition-all duration-300 placeholder:text-muted-foreground/50"
               rows={4}
             />
-            <button className="flex items-center justify-center h-9 w-9 sm:h-10 sm:w-10 absolute right-3 bottom-3 bg-slate-800 hover:bg-slate-700 rounded-full duration-200">
+            <button
+              onClick={handleSubmit}
+              className="flex items-center justify-center h-9 w-9 sm:h-10 sm:w-10 absolute right-3 bottom-3 bg-slate-800 hover:bg-slate-700 rounded-full duration-200"
+            >
               <FaArrowUpLong className="size-4" strokeWidth={4} color="white" />
             </button>
           </div>
