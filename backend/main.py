@@ -7,6 +7,21 @@ import pandas as pd
 from datetime import datetime, timedelta
 from src.reddit_scraper import fetch_reddit_posts
 from src.sentiment_analysis import analyze_sentiment
+from dotenv import load_dotenv
+import google.generativeai as genai
+
+# Load environment variables
+load_dotenv()
+
+# Configure Gemini
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if GEMINI_API_KEY and GEMINI_API_KEY != "your_gemini_api_key_here":
+    genai.configure(api_key=GEMINI_API_KEY)
+    # Use Gemini 1.5 Flash (fastest free model)
+    # Updated model name for current API
+    gemini_model = genai.GenerativeModel('gemini-2.0-flash-exp')
+else:
+    gemini_model = None
 
 app = FastAPI(
     title="Reddit Sentiment Analysis API",
@@ -101,6 +116,32 @@ class ChartDataResponse(BaseModel):
     posts_over_time: List[PostsOverTime]
     sentiment_posts_over_time: List[SentimentPostsOverTime]
 
+# RAG-specific models
+class RAGRequest(BaseModel):
+    query: str = Field(..., description="Topic to analyze from Reddit", min_length=1)
+    question: str = Field(..., description="Question to ask about the data", min_length=1)
+    limit: int = Field(default=100, description="Number of posts to fetch", ge=10, le=500)
+    time_window_hours: int = Field(default=48, description="Time window in hours", ge=1, le=168)
+    include_context: bool = Field(default=True, description="Include source posts in response")
+
+class SourcePost(BaseModel):
+    title: str
+    url: str
+    sentiment: str
+    score: int
+    created_utc: str
+
+class RAGResponse(BaseModel):
+    query: str
+    question: str
+    answer: str
+    confidence: str
+    total_posts_analyzed: int
+    sentiment_summary: SentimentSummary
+    time_range: str
+    source_posts: Optional[List[SourcePost]] = None
+    model_used: str
+
 @app.get("/")
 async def root():
     """Root endpoint with API information"""
@@ -110,8 +151,10 @@ async def root():
         "endpoints": {
             "analyze": "/api/analyze (POST) - Full sentiment analysis with posts",
             "charts": "/api/charts (POST) - Chart data optimized for Recharts",
+            "rag": "/api/rag (POST) - Ask questions about Reddit sentiment data (AI-powered)",
             "health": "/health (GET) - Health check"
-        }
+        },
+        "gemini_configured": gemini_model is not None
     }
 
 @app.get("/health")
@@ -137,7 +180,7 @@ async def analyze_sentiment_endpoint(request: AnalysisRequest):
             raise HTTPException(status_code=404, detail="No posts found for the given query")
         
         posts_df["created_utc"] = pd.to_datetime(posts_df["created_utc"], unit="s")
-        
+
         # Filter to specified time window
         time_cutoff = datetime.utcnow() - timedelta(hours=request.time_window_hours)
         filtered_df = posts_df[posts_df["created_utc"] >= time_cutoff]
@@ -174,7 +217,7 @@ async def analyze_sentiment_endpoint(request: AnalysisRequest):
             end=datetime.utcnow(), 
             freq=f"{request.interval_hours}H"
         )
-        
+
         grouped_data = []
         for i in range(len(time_bins) - 1):
             start, end = time_bins[i], time_bins[i + 1]
@@ -443,6 +486,161 @@ async def get_chart_data(request: AnalysisRequest):
             sentiment_over_time=sentiment_over_time_data,
             posts_over_time=posts_over_time_data,
             sentiment_posts_over_time=sentiment_posts_over_time_data
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.post("/api/rag", response_model=RAGResponse)
+async def ask_question_about_sentiment(request: RAGRequest):
+    """
+    Ask questions about Reddit sentiment data using RAG with Gemini AI
+    
+    This endpoint:
+    1. Fetches Reddit posts about your query
+    2. Analyzes their sentiment
+    3. Uses Google Gemini AI to answer your question based on the data
+    
+    - **query**: Topic to search on Reddit (e.g., "iPhone 17")
+    - **question**: Question to ask about the sentiment data (e.g., "What are people saying about the camera?")
+    - **limit**: Number of posts to analyze (10-500)
+    - **time_window_hours**: Time window for posts (1-168 hours)
+    - **include_context**: Include source posts in response
+    """
+    try:
+        # Check if Gemini is configured
+        if gemini_model is None:
+            raise HTTPException(
+                status_code=503, 
+                detail="Gemini API not configured. Please set GEMINI_API_KEY in .env file. Get your free key at https://makersuite.google.com/app/apikey"
+            )
+        
+        # Step 1: Fetch Reddit posts
+        posts_df = fetch_reddit_posts(request.query, limit=request.limit)
+        
+        if posts_df.empty:
+            raise HTTPException(status_code=404, detail="No posts found for the given query")
+        
+        posts_df["created_utc"] = pd.to_datetime(posts_df["created_utc"], unit="s")
+        
+        # Filter to specified time window
+        time_cutoff = datetime.utcnow() - timedelta(hours=request.time_window_hours)
+        filtered_df = posts_df[posts_df["created_utc"] >= time_cutoff]
+        
+        if filtered_df.empty:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"No posts found in the last {request.time_window_hours} hours"
+            )
+        
+        # Step 2: Sentiment analysis
+        filtered_df["sentiment_label"], filtered_df["sentiment_score"] = zip(
+            *filtered_df["title"].apply(analyze_sentiment)
+        )
+        
+        # Normalize sentiment labels
+        def normalize_label(label):
+            label_lower = label.lower()
+            if label_lower in ["positive", "label_2"]:
+                return "positive"
+            elif label_lower in ["negative", "label_0"]:
+                return "negative"
+            else:
+                return "neutral"
+        
+        filtered_df["sentiment_normalized"] = filtered_df["sentiment_label"].apply(normalize_label)
+        
+        # Count sentiment distribution
+        sentiment_counts = filtered_df["sentiment_normalized"].value_counts().to_dict()
+        sentiment_summary = SentimentSummary(
+            positive=sentiment_counts.get("positive", 0),
+            negative=sentiment_counts.get("negative", 0),
+            neutral=sentiment_counts.get("neutral", 0)
+        )
+        
+        # Step 3: Prepare context for RAG
+        # Select top posts by score and diverse sentiments
+        positive_posts = filtered_df[filtered_df["sentiment_normalized"] == "positive"].nlargest(10, "score")
+        negative_posts = filtered_df[filtered_df["sentiment_normalized"] == "negative"].nlargest(10, "score")
+        neutral_posts = filtered_df[filtered_df["sentiment_normalized"] == "neutral"].nlargest(5, "score")
+        
+        sample_posts = pd.concat([positive_posts, negative_posts, neutral_posts]).sort_values("score", ascending=False).head(30)
+        
+        # Build context for Gemini
+        context_parts = [
+            f"Reddit Sentiment Analysis Report for: {request.query}",
+            f"Total posts analyzed: {len(filtered_df)}",
+            f"Time period: Last {request.time_window_hours} hours",
+            f"Sentiment breakdown: {sentiment_summary.positive} positive, {sentiment_summary.negative} negative, {sentiment_summary.neutral} neutral",
+            "",
+            "Sample of popular Reddit posts:",
+            ""
+        ]
+        
+        for idx, row in sample_posts.iterrows():
+            context_parts.append(
+                f"- [{row['sentiment_normalized'].upper()}] (Score: {row['score']}) \"{row['title']}\" "
+                f"{f'- {row['selftext'][:200]}...' if row['selftext'] else ''}"
+            )
+        
+        context = "\n".join(context_parts)
+        
+        # Step 4: Generate answer using Gemini
+        prompt = f"""You are a Reddit sentiment analysis assistant. Based on the following Reddit data, please answer the user's question concisely and accurately.
+
+{context}
+
+User's Question: {request.question}
+
+Please provide:
+1. A clear, direct answer to the question
+2. Support your answer with specific examples from the posts
+3. Mention relevant sentiment patterns
+4. Keep your response concise (2-3 paragraphs max)
+
+Answer:"""
+        
+        try:
+            response = gemini_model.generate_content(prompt)
+            answer = response.text
+            confidence = "high" if len(sample_posts) >= 20 else "medium" if len(sample_posts) >= 10 else "low"
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Error generating response from Gemini: {str(e)}"
+            )
+        
+        # Step 5: Prepare source posts if requested
+        source_posts = None
+        if request.include_context:
+            source_posts = [
+                SourcePost(
+                    title=row["title"],
+                    url=row["url"],
+                    sentiment=row["sentiment_normalized"],
+                    score=int(row["score"]),
+                    created_utc=row["created_utc"].isoformat()
+                )
+                for _, row in sample_posts.head(10).iterrows()
+            ]
+        
+        # Calculate time range
+        first_post = filtered_df["created_utc"].min()
+        last_post = filtered_df["created_utc"].max()
+        time_range = f"{first_post.strftime('%Y-%m-%d %H:%M')} to {last_post.strftime('%Y-%m-%d %H:%M')}"
+        
+        return RAGResponse(
+            query=request.query,
+            question=request.question,
+            answer=answer,
+            confidence=confidence,
+            total_posts_analyzed=len(filtered_df),
+            sentiment_summary=sentiment_summary,
+            time_range=time_range,
+            source_posts=source_posts,
+            model_used="gemini-1.5-flash-latest"
         )
     
     except HTTPException:

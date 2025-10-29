@@ -146,6 +146,71 @@ def test_charts(query="Python programming", limit=50):
         print(f"Error: {str(e)}")
         return False
 
+def test_rag(query="Python programming"):
+    """Test the RAG endpoint"""
+    print(f"Testing RAG endpoint with query: '{query}'...")
+    
+    question = "What are the main topics people discuss about this?"
+    
+    payload = {
+        "query": query,
+        "question": question,
+        "limit": 100,
+        "time_window_hours": 48,
+        "include_context": True
+    }
+    
+    print(f"Request payload: {json.dumps(payload, indent=2)}")
+    
+    try:
+        response = requests.post(
+            f"{BASE_URL}/api/rag",
+            json=payload,
+            timeout=120  # RAG takes longer due to AI processing
+        )
+        
+        print(f"Status: {response.status_code}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            print(f"\nResults:")
+            print(f"  Query: {data['query']}")
+            print(f"  Question: {data['question']}")
+            print(f"  Model: {data['model_used']}")
+            print(f"  Confidence: {data['confidence']}")
+            print(f"  Posts analyzed: {data['total_posts_analyzed']}")
+            
+            print(f"\n  Sentiment Summary:")
+            print(f"    Positive: {data['sentiment_summary']['positive']}")
+            print(f"    Negative: {data['sentiment_summary']['negative']}")
+            print(f"    Neutral: {data['sentiment_summary']['neutral']}")
+            
+            print(f"\n  Answer:")
+            print(f"    {data['answer'][:200]}...")  # First 200 chars
+            
+            if data['source_posts']:
+                print(f"\n  Source posts: {len(data['source_posts'])}")
+                print(f"    Sample: \"{data['source_posts'][0]['title'][:60]}...\"")
+            
+            return True
+        elif response.status_code == 503:
+            print(f"\n⚠️ Gemini API not configured")
+            print(f"  {response.json().get('detail', '')}")
+            print(f"\n  To enable RAG:")
+            print(f"  1. Get free API key: https://makersuite.google.com/app/apikey")
+            print(f"  2. Add to .env: GEMINI_API_KEY=your_key")
+            return None  # Not a failure, just not configured
+        else:
+            print(f"Error: {response.json()}")
+            return False
+        
+    except requests.exceptions.Timeout:
+        print("Error: Request timed out. Try reducing the limit.")
+        return False
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return False
+
 def main():
     """Run all tests"""
     print("=" * 60)
@@ -184,6 +249,15 @@ def main():
     print("Testing Charts Endpoint")
     print("=" * 60)
     results.append(("Charts Endpoint", test_charts(query)))
+    
+    print("\n" + "=" * 60)
+    print("Testing RAG Endpoint (AI-Powered)")
+    print("=" * 60)
+    rag_result = test_rag(query)
+    if rag_result is not None:
+        results.append(("RAG Endpoint", rag_result))
+    else:
+        print("  ℹ️ Skipped (Gemini API not configured)")
     
     # Print summary
     print("\n" + "=" * 60)
