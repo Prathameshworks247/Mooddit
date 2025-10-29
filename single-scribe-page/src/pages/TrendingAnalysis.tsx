@@ -23,11 +23,41 @@ import {
   Sparkles,
   ExternalLink,
   AlertCircle,
+  Flame,
+  Zap,
+  Activity,
 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Legend,
+  Tooltip,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  LineChart,
+  Line,
+} from "recharts";
 
 // API Base URL - change this to match your backend
 const API_BASE_URL = "http://localhost:8000";
+
+// Chart Colors
+const CHART_COLORS = {
+  positive: "#10b981", // green-500
+  negative: "#ef4444", // red-500
+  neutral: "#6b7280", // gray-500
+  primary: "#3b82f6", // blue-500
+  secondary: "#8b5cf6", // purple-500
+  accent: "#f59e0b", // amber-500
+};
+
+const PIE_COLORS = [CHART_COLORS.positive, CHART_COLORS.negative, CHART_COLORS.neutral];
 
 // Types
 interface SentimentSummary {
@@ -100,24 +130,30 @@ const TrendingAnalysis = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [analyzeComponents, setAnalyzeComponents] = useState(false);
-  const [topN, setTopN] = useState(10);
+  const [topN, setTopN] = useState(5);
   
   // Cache to store fetched data per category
   const [dataCache, setDataCache] = useState<Record<string, TrendingResponse>>({});
 
   const fetchTrendingTopics = async (forceRefresh: boolean = false) => {
+    console.log(`🎯 fetchTrendingTopics called for "${selectedCategory}", forceRefresh=${forceRefresh}`);
+    
     // Check if we have cached data for this category
     if (!forceRefresh && dataCache[selectedCategory]) {
-      console.log(`📦 Using cached data for category: ${selectedCategory}`);
+      console.log(`✅ 📦 Using cached data for category: ${selectedCategory}`);
       setTrendingData(dataCache[selectedCategory]);
       setError(null);
       return;
     }
 
     // Prevent multiple simultaneous requests
-    if (loading) return;
+    if (loading) {
+      console.log(`⚠️ Already loading, skipping request for ${selectedCategory}`);
+      return;
+    }
     
-    console.log(`🔄 Fetching fresh data for category: ${selectedCategory}`);
+    console.log(`❌ 🔄 Fetching fresh data for category: ${selectedCategory}`);
+    console.log(`📊 Cache before fetch:`, Object.keys(dataCache));
     setLoading(true);
     setError(null);
 
@@ -147,10 +183,14 @@ const TrendingAnalysis = () => {
       setTrendingData(data);
       
       // Store in cache
-      setDataCache(prev => ({
-        ...prev,
-        [selectedCategory]: data
-      }));
+      setDataCache(prev => {
+        const newCache = {
+          ...prev,
+          [selectedCategory]: data
+        };
+        console.log(`💾 Stored "${selectedCategory}" in cache. Cache now has:`, Object.keys(newCache));
+        return newCache;
+      });
       
       toast({
         title: "✅ Analysis Complete",
@@ -178,13 +218,18 @@ const TrendingAnalysis = () => {
   
   // Handle category changes
   useEffect(() => {
+    // Debug: Show current cache state
+    console.log(`🔍 Category changed to: ${selectedCategory}`);
+    console.log(`📊 Current cache keys:`, Object.keys(dataCache));
+    console.log(`❓ Is "${selectedCategory}" in cache?`, !!dataCache[selectedCategory]);
+    
     // When category changes, check cache first
     if (dataCache[selectedCategory]) {
-      console.log(`📦 Category changed to ${selectedCategory}, using cached data`);
+      console.log(`✅ 📦 Category changed to ${selectedCategory}, using cached data`);
       setTrendingData(dataCache[selectedCategory]);
       setError(null);
     } else {
-      console.log(`🔄 Category changed to ${selectedCategory}, fetching new data`);
+      console.log(`❌ 🔄 Category changed to ${selectedCategory}, fetching new data`);
       fetchTrendingTopics();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -446,70 +491,129 @@ const TrendingTopicCard = ({
 
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-      <CardHeader>
+      <CardHeader className="bg-gradient-to-r from-slate-50 to-gray-50">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
-              <Badge variant="outline" className="text-lg font-bold">
-                #{topic_info.rank}
-              </Badge>
-              <CardTitle className="text-2xl">{topic_info.topic}</CardTitle>
+              {/* Enhanced Rank Badge */}
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full blur-sm opacity-75"></div>
+                <Badge className="relative bg-gradient-to-br from-yellow-500 to-orange-600 text-white border-0 text-lg font-bold px-4 py-2 shadow-lg">
+                  #{topic_info.rank}
+                </Badge>
+              </div>
+              <CardTitle className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                {topic_info.topic}
+              </CardTitle>
             </div>
             
             {topic_info.variants && topic_info.variants.length > 1 && (
-              <CardDescription>
-                Also: {topic_info.variants.filter(v => v !== topic_info.topic).join(", ")}
+              <CardDescription className="ml-16">
+                <span className="text-sm">Also known as:</span> {topic_info.variants.filter(v => v !== topic_info.topic).join(", ")}
               </CardDescription>
             )}
           </div>
 
-          <div className="flex flex-col items-end gap-1">
-            <Badge className="bg-primary/10 text-primary">
-              {topic_info.trending_strength.toFixed(0)}% Trending
+          <div className="flex flex-col items-end gap-2">
+            <Badge className="bg-gradient-to-r from-orange-500 to-red-500 text-white border-0 text-sm px-3 py-1 shadow-md">
+              <Flame className="h-3 w-3 mr-1" />
+              {topic_info.trending_strength.toFixed(0)}% Hot
             </Badge>
             {topic.trending_duration_hours && (
-              <Badge variant="outline" className="gap-1">
+              <Badge variant="outline" className="gap-1 bg-white">
                 <Clock className="h-3 w-3" />
-                {topic.trending_duration_hours.toFixed(1)}h
+                Active {topic.trending_duration_hours.toFixed(1)}h
               </Badge>
             )}
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-6">
-        {/* Metrics Grid */}
+      <CardContent className="space-y-6 mt-6">
+        {/* Trending Strength Visualization */}
+        <div className="relative p-6 rounded-xl bg-gradient-to-br from-orange-50 to-red-50 border border-orange-200">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-gradient-to-br from-orange-500 to-red-500 rounded-full">
+                <Flame className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-gray-900">Trending Strength</p>
+                <p className="text-sm text-gray-600">Popularity momentum</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+                {topic_info.trending_strength.toFixed(0)}%
+              </p>
+              {topic.trending_duration_hours && (
+                <p className="text-xs text-gray-600 flex items-center gap-1 justify-end">
+                  <Clock className="h-3 w-3" />
+                  Active for {topic.trending_duration_hours.toFixed(1)}h
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="w-full bg-white/50 rounded-full h-3 overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full transition-all duration-500 flex items-center justify-end pr-2"
+              style={{ width: `${Math.min(topic_info.trending_strength, 100)}%` }}
+            >
+              {topic_info.trending_strength > 20 && (
+                <Zap className="h-3 w-3 text-white animate-pulse" />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Metrics Grid - Enhanced */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
-            <div>
-              <p className="text-sm text-muted-foreground">Posts</p>
-              <p className="font-semibold">{topic_info.post_count}</p>
+          {/* Posts */}
+          <div className="p-4 rounded-lg bg-blue-50 border border-blue-200">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-2 bg-blue-500 rounded-lg">
+                <MessageSquare className="h-4 w-4 text-white" />
+              </div>
+              <p className="text-sm font-medium text-blue-900">Posts</p>
             </div>
+            <p className="text-2xl font-bold text-blue-900">{topic_info.post_count}</p>
+            <p className="text-xs text-blue-700 mt-1">Total discussions</p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            <div>
-              <p className="text-sm text-muted-foreground">Score</p>
-              <p className="font-semibold">{topic_info.total_score.toLocaleString()}</p>
+          {/* Score */}
+          <div className="p-4 rounded-lg bg-purple-50 border border-purple-200">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-2 bg-purple-500 rounded-lg">
+                <BarChart3 className="h-4 w-4 text-white" />
+              </div>
+              <p className="text-sm font-medium text-purple-900">Score</p>
             </div>
+            <p className="text-2xl font-bold text-purple-900">{topic_info.total_score.toLocaleString()}</p>
+            <p className="text-xs text-purple-700 mt-1">Total upvotes</p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
-            <div>
-              <p className="text-sm text-muted-foreground">Comments</p>
-              <p className="font-semibold">{topic_info.total_comments.toLocaleString()}</p>
+          {/* Comments */}
+          <div className="p-4 rounded-lg bg-pink-50 border border-pink-200">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-2 bg-pink-500 rounded-lg">
+                <MessageSquare className="h-4 w-4 text-white" />
+              </div>
+              <p className="text-sm font-medium text-pink-900">Comments</p>
             </div>
+            <p className="text-2xl font-bold text-pink-900">{topic_info.total_comments.toLocaleString()}</p>
+            <p className="text-xs text-pink-700 mt-1">Total engagements</p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            <div>
-              <p className="text-sm text-muted-foreground">Velocity</p>
-              <p className="font-semibold">{topic_info.avg_velocity.toFixed(1)}</p>
+          {/* Velocity */}
+          <div className="p-4 rounded-lg bg-amber-50 border border-amber-200">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-2 bg-amber-500 rounded-lg">
+                <TrendingUp className="h-4 w-4 text-white" />
+              </div>
+              <p className="text-sm font-medium text-amber-900">Velocity</p>
             </div>
+            <p className="text-2xl font-bold text-amber-900">{topic_info.avg_velocity.toFixed(1)}</p>
+            <p className="text-xs text-amber-700 mt-1">Engagement/hour</p>
           </div>
         </div>
 
@@ -530,51 +634,99 @@ const TrendingTopicCard = ({
 
         <Separator />
 
-        {/* Sentiment Analysis */}
+        {/* Sentiment Analysis with Pie Chart */}
         <div>
-          <p className="text-sm font-medium mb-3">Sentiment Distribution</p>
+          <p className="text-sm font-medium mb-3 flex items-center gap-2">
+            <Activity className="h-4 w-4" />
+            Sentiment Distribution
+          </p>
           
-          <div className="space-y-3">
-            {/* Positive */}
-            <div className="space-y-1">
-              <div className="flex justify-between text-sm">
-                <span className="flex items-center gap-1">
-                  <ThumbsUp className="h-3 w-3 text-green-600" />
-                  Positive
-                </span>
-                <span className="font-medium">
-                  {sentiment_analysis.positive} ({percentages.positive.toFixed(1)}%)
-                </span>
-              </div>
-              <Progress value={percentages.positive} className="h-2 bg-green-100" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Pie Chart */}
+            <div className="h-64 flex items-center justify-center">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: "Positive", value: sentiment_analysis.positive },
+                      { name: "Negative", value: sentiment_analysis.negative },
+                      { name: "Neutral", value: sentiment_analysis.neutral },
+                    ]}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {[0, 1, 2].map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
 
-            {/* Negative */}
-            <div className="space-y-1">
-              <div className="flex justify-between text-sm">
-                <span className="flex items-center gap-1">
-                  <ThumbsDown className="h-3 w-3 text-red-600" />
-                  Negative
-                </span>
-                <span className="font-medium">
-                  {sentiment_analysis.negative} ({percentages.negative.toFixed(1)}%)
-                </span>
+            {/* Stats Cards */}
+            <div className="space-y-3">
+              {/* Positive */}
+              <div className="p-4 rounded-lg bg-green-50 border border-green-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-green-500 rounded-full">
+                      <ThumbsUp className="h-4 w-4 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-green-900">Positive</p>
+                      <p className="text-xs text-green-700">Optimistic responses</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-green-900">{sentiment_analysis.positive}</p>
+                    <p className="text-xs text-green-700">{percentages.positive.toFixed(1)}%</p>
+                  </div>
+                </div>
               </div>
-              <Progress value={percentages.negative} className="h-2 bg-red-100" />
-            </div>
 
-            {/* Neutral */}
-            <div className="space-y-1">
-              <div className="flex justify-between text-sm">
-                <span className="flex items-center gap-1">
-                  <Minus className="h-3 w-3 text-gray-600" />
-                  Neutral
-                </span>
-                <span className="font-medium">
-                  {sentiment_analysis.neutral} ({percentages.neutral.toFixed(1)}%)
-                </span>
+              {/* Negative */}
+              <div className="p-4 rounded-lg bg-red-50 border border-red-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-red-500 rounded-full">
+                      <ThumbsDown className="h-4 w-4 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-red-900">Negative</p>
+                      <p className="text-xs text-red-700">Critical responses</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-red-900">{sentiment_analysis.negative}</p>
+                    <p className="text-xs text-red-700">{percentages.negative.toFixed(1)}%</p>
+                  </div>
+                </div>
               </div>
-              <Progress value={percentages.neutral} className="h-2 bg-gray-100" />
+
+              {/* Neutral */}
+              <div className="p-4 rounded-lg bg-gray-50 border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-gray-500 rounded-full">
+                      <Minus className="h-4 w-4 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Neutral</p>
+                      <p className="text-xs text-gray-700">Balanced responses</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-gray-900">{sentiment_analysis.neutral}</p>
+                    <p className="text-xs text-gray-700">{percentages.neutral.toFixed(1)}%</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

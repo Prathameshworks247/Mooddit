@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FaArrowUpLong } from "react-icons/fa6";
-import { TrendingUp, BarChart3, MessageSquare } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Index = () => {
@@ -22,11 +21,10 @@ const Index = () => {
         {/* Hero Content */}
         <div className="text-center space-y-3">
           <h1 className="text-5xl md:text-6xl font-bold tracking-tight bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent bg-[length:200%_auto] animate-gradient">
-            Build with AI
+            Reddit Sentiment Analysis
           </h1>
           <p className="text-sm sm:text-base md:text-xl text-muted-foreground max-w-2xl mx-auto">
-            Describe what you want to create, and watch it come to life
-            instantly
+            Discover what's trending on Reddit with real-time AI-powered sentiment analysis across multiple categories
           </p>
         </div>
 
@@ -37,7 +35,7 @@ const Index = () => {
             <Textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Describe your idea... (e.g., 'Create a modern dashboard with analytics charts')"
+              placeholder="Enter a topic to analyze... (e.g., 'iPhone 17', 'Climate Change', 'AI Technology')"
               className="pl-5 pr-10 py-3 resize-none text-sm sm:text-base md:text-lg bg-card/50 backdrop-blur-xl border-border/50 rounded-xl transition-all duration-300 placeholder:text-muted-foreground/50"
               rows={4}
             />
@@ -52,16 +50,16 @@ const Index = () => {
 
         {/* Optional: Action Hint */}
         <p className="text-center text-sm text-muted-foreground/70">
-          Press Enter to start creating
+          Press Enter to analyze sentiment
         </p>
 
         {/* Quick Actions */}
         <div className="pt-8">
           <p className="text-center text-sm font-medium text-muted-foreground mb-4">
-            Or explore our features
+            Or explore trending topics
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Link to="/trending">
+          <div className="flex justify-center">
+            <Link to="/trending" className="w-full max-w-md">
               <Card className="cursor-pointer hover:shadow-lg transition-all hover:scale-105 bg-gradient-to-br from-orange-500/10 to-red-500/10 border-orange-500/20">
                 <CardHeader>
                   <TrendingUp className="h-8 w-8 text-orange-600 mb-2" />
@@ -72,26 +70,6 @@ const Index = () => {
                 </CardHeader>
               </Card>
             </Link>
-
-            <Card className="cursor-pointer opacity-50 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border-blue-500/20">
-              <CardHeader>
-                <BarChart3 className="h-8 w-8 text-blue-600 mb-2" />
-                <CardTitle className="text-lg">Chart Analysis</CardTitle>
-                <CardDescription>
-                  Visualize sentiment trends over time (Coming soon)
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card className="cursor-pointer opacity-50 bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/20">
-              <CardHeader>
-                <MessageSquare className="h-8 w-8 text-purple-600 mb-2" />
-                <CardTitle className="text-lg">RAG Q&A</CardTitle>
-                <CardDescription>
-                  Ask questions about sentiment data (Coming soon)
-                </CardDescription>
-              </CardHeader>
-            </Card>
           </div>
         </div>
       </div>
