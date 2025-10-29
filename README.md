@@ -242,7 +242,7 @@ npm install
 npm run dev
 ```
 
-**Frontend will run on**: `http://localhost:5173`
+**Frontend will run on**: `http://localhost:8080`
 
 ---
 
@@ -413,7 +413,7 @@ http://localhost:8000
 ## 🎮 Usage
 
 ### 1. Landing Page
-- Navigate to `http://localhost:5173`
+- Navigate to `http://localhost:8080`
 - Click "Trending Analysis" to explore trending topics
 
 ### 2. Chat Interface (Main Page)
