@@ -5,6 +5,7 @@ A beautiful, interactive React dashboard for visualizing Reddit trending topics 
 ## Features
 
 - **Real-time Trending Topics**: Discover what's hot on Reddit across 7 categories
+- **Smart Caching**: Instant category switching - no refetching when revisiting categories 📦
 - **Sentiment Analysis**: Visualize positive, negative, and neutral sentiment for each topic
 - **AI Component Analysis**: Optional deep-dive into sentiment by components (camera, battery, price, etc.)
 - **Interactive UI**: Beautiful cards, progress bars, and responsive design
@@ -12,6 +13,8 @@ A beautiful, interactive React dashboard for visualizing Reddit trending topics 
 - **Sample Posts**: View top Reddit posts for each trending topic
 - **Subreddit Badges**: See where topics are trending
 - **Trending Metrics**: Post count, score, comments, velocity, and trending strength
+- **Force Refresh**: Update data on demand with refresh button
+- **Clear Cache**: Remove cached data when needed
 
 ## Quick Start
 
@@ -46,6 +49,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 - **[QUICK_START.md](./QUICK_START.md)** - Complete setup guide with troubleshooting
 - **[TRENDING_FRONTEND.md](./TRENDING_FRONTEND.md)** - Detailed feature documentation
+- **[CACHING_SYSTEM.md](./CACHING_SYSTEM.md)** - How the smart caching system works
 
 ## Routes
 
@@ -65,13 +69,21 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 - **React Router** - Routing
 - **Tanstack Query** - Data fetching (ready for use)
 
-## Recent Fixes
+## Recent Updates
+
+### ✅ Smart Caching System Implemented
+- **Per-category caching**: Data cached separately for each category
+- **Instant switching**: Revisiting categories is instant (no refetch)
+- **Force refresh**: Refresh button to get latest data
+- **Clear cache**: Button to remove all cached data
+- **Visual indicators**: Badge shows when viewing cached data
+- **Console logging**: Track cache hits/misses in DevTools
 
 ### ✅ Infinite Refetch Loop Fixed
 The component was fetching data repeatedly. Fixed by:
-- Removing `selectedCategory` from `useEffect` dependencies
-- Only fetching once on initial mount
-- Manually triggering fetches on category change
+- Removing `selectedCategory` from initial `useEffect` dependencies
+- Adding separate `useEffect` to watch category changes
+- Implementing cache-first fetch strategy
 - Adding loading state check to prevent simultaneous requests
 
 ## Project info

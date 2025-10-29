@@ -13,6 +13,7 @@ interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  first?: boolean;
   // posts?: Post[];
 }
 
@@ -78,8 +79,19 @@ const Main = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await axios.post("http://localhost:8001/chat", {
-          message: prompt,
+        const response = await axios.post("http://localhost:8000/api/rag", {
+          query: prompt,
+          question: ".",
+          limit: 100,
+          time_window_hours: 48,
+          include_context: true,
+          conversation_history: [
+            {
+              question: "string",
+              answer: "string",
+              components: ["string"],
+            },
+          ],
         });
         setMessages((prev) => [
           ...prev,
@@ -87,6 +99,7 @@ const Main = () => {
             id: crypto.randomUUID(),
             role: "assistant",
             content: (response.data as { answer: string }).answer,
+            first: true,
           },
         ]);
         setPosts((response.data as { source_posts: Post[] }).source_posts);
@@ -98,6 +111,38 @@ const Main = () => {
     };
     fetchData();
   }, [prompt]);
+
+  const handleSend = async () => {
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        role: "user",
+        content: input,
+      },
+    ]);
+    setInput("");
+    setLoading(true);
+    try {
+      const response = await axios.post("http://localhost:8000/api/rag", {
+        query: prompt,
+        question: input,
+      });
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: (response.data as { answer: string }).answer,
+          first: false,
+        },
+      ]);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -120,6 +165,7 @@ const Main = () => {
             <div className="flex flex-col gap-10">
               {messages.map((message, index) => (
                 <Message
+                  first={message.first}
                   key={index}
                   role={message.role}
                   content={message.content}
@@ -145,6 +191,7 @@ const Main = () => {
               size="icon"
               className="absolute right-2 bottom-2 h-9 w-9 rounded-md"
               disabled={!input.trim()}
+              onClick={handleSend}
             >
               <LuSend size={30} strokeWidth={3} color="white" />
             </Button>
@@ -162,10 +209,12 @@ function Message({
   role,
   content,
   posts,
+  first,
 }: {
   role: "user" | "assistant";
   content: string;
   posts: Post[];
+  first?: boolean;
 }) {
   return (
     <>
@@ -213,28 +262,32 @@ function Message({
               {content}
             </Markdown>
           </div>
-          <button className="text-base text-blue-700 hover:text-blue-500 duration-150">
-            Show Dashboard
-          </button>
-          <div className="w-full flex flex-col gap-4">
-            <p className="">Related Reddit Posts:</p>
-            <div className="w-full overflow-x-auto scrollbar-hide">
-              <div className="flex flex-row gap-6">
-                {posts.map((post, index) => (
-                  <a href={post.url} target="_blank" key={index}>
-                    <div className="relative flex flex-col justify-between bg-[#383838] w-[250px] h-[150px] rounded-2xl py-4 border border-solid border-gray-400">
-                      <p className="text-lg text-white font-semibold line-clamp-2 pl-4 pr-8">
-                        {post.title}
-                      </p>
-                      <p className="text-sm text-white font-light line-clamp-2 px-4">
-                        {post.selftext}
-                      </p>
-                    </div>
-                  </a>
-                ))}
+          {first && (
+            <>
+              <button className="text-base text-blue-700 hover:text-blue-500 duration-150">
+                Show Dashboard
+              </button>
+              <div className="w-full flex flex-col gap-4">
+                <p className="">Related Reddit Posts:</p>
+                <div className="w-full overflow-x-auto scrollbar-hide">
+                  <div className="flex flex-row gap-6">
+                    {posts.map((post, index) => (
+                      <a href={post.url} target="_blank" key={index}>
+                        <div className="relative flex flex-col justify-between bg-[#383838] w-[250px] h-[150px] rounded-2xl py-4 border border-solid border-gray-400">
+                          <p className="text-lg text-white font-semibold line-clamp-2 pl-4 pr-8">
+                            {post.title}
+                          </p>
+                          <p className="text-sm text-white font-light line-clamp-2 px-4">
+                            {post.selftext}
+                          </p>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            </>
+          )}
         </div>
       )}
     </>

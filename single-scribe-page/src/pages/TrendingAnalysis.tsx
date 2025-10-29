@@ -101,11 +101,23 @@ const TrendingAnalysis = () => {
   const [error, setError] = useState<string | null>(null);
   const [analyzeComponents, setAnalyzeComponents] = useState(false);
   const [topN, setTopN] = useState(10);
+  
+  // Cache to store fetched data per category
+  const [dataCache, setDataCache] = useState<Record<string, TrendingResponse>>({});
 
-  const fetchTrendingTopics = async () => {
+  const fetchTrendingTopics = async (forceRefresh: boolean = false) => {
+    // Check if we have cached data for this category
+    if (!forceRefresh && dataCache[selectedCategory]) {
+      console.log(`📦 Using cached data for category: ${selectedCategory}`);
+      setTrendingData(dataCache[selectedCategory]);
+      setError(null);
+      return;
+    }
+
     // Prevent multiple simultaneous requests
     if (loading) return;
     
+    console.log(`🔄 Fetching fresh data for category: ${selectedCategory}`);
     setLoading(true);
     setError(null);
 
@@ -130,7 +142,15 @@ const TrendingAnalysis = () => {
       }
 
       const data: TrendingResponse = await response.json();
+      
+      // Update current data
       setTrendingData(data);
+      
+      // Store in cache
+      setDataCache(prev => ({
+        ...prev,
+        [selectedCategory]: data
+      }));
       
       toast({
         title: "✅ Analysis Complete",
@@ -155,6 +175,20 @@ const TrendingAnalysis = () => {
     fetchTrendingTopics();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array - only run once on mount
+  
+  // Handle category changes
+  useEffect(() => {
+    // When category changes, check cache first
+    if (dataCache[selectedCategory]) {
+      console.log(`📦 Category changed to ${selectedCategory}, using cached data`);
+      setTrendingData(dataCache[selectedCategory]);
+      setError(null);
+    } else {
+      console.log(`🔄 Category changed to ${selectedCategory}, fetching new data`);
+      fetchTrendingTopics();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCategory]); // Only run when category changes
 
   const getSentimentIcon = (sentiment: string) => {
     switch (sentiment.toLowerCase()) {
@@ -216,25 +250,42 @@ const TrendingAnalysis = () => {
               </Label>
             </div>
             
-            <Button
-              onClick={fetchTrendingTopics}
-              disabled={loading}
-              className="gap-2"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => fetchTrendingTopics(true)}
+                disabled={loading}
+                className="gap-2"
+                variant="default"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+              
+              {Object.keys(dataCache).length > 0 && (
+                <Button
+                  onClick={() => {
+                    setDataCache({});
+                    setTrendingData(null);
+                    toast({
+                      title: "🗑️ Cache Cleared",
+                      description: "All cached data has been removed",
+                    });
+                  }}
+                  disabled={loading}
+                  variant="outline"
+                  className="gap-2"
+                >
+                  Clear Cache ({Object.keys(dataCache).length})
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Category Tabs */}
         <Tabs 
           value={selectedCategory} 
-          onValueChange={(value) => {
-            setSelectedCategory(value);
-            // Trigger fetch when category changes
-            setTimeout(() => fetchTrendingTopics(), 100);
-          }}
+          onValueChange={setSelectedCategory}
         >
           <TabsList className="grid grid-cols-7 w-full">
             {categories.map((cat) => (
@@ -274,6 +325,18 @@ const TrendingAnalysis = () => {
             {/* Success State */}
             {trendingData && !loading && (
               <div className="space-y-6">
+                {/* Cache Status Badge */}
+                {dataCache[selectedCategory] && (
+                  <div className="flex items-center justify-end gap-2 text-sm text-muted-foreground">
+                    <Badge variant="secondary" className="gap-1">
+                      📦 Cached Data
+                    </Badge>
+                    <span className="text-xs">
+                      Click Refresh to fetch latest
+                    </span>
+                  </div>
+                )}
+
                 {/* Stats Overview */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <Card>
