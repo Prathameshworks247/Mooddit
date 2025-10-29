@@ -1,3 +1,4 @@
+import React from "react";
 import {
   Sheet,
   SheetContent,
@@ -256,10 +257,20 @@ interface SidebarProps {
 }
 
 export function Sidebar({ chartData, loading, onLoadCharts }: SidebarProps) {
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    // Only load charts when opening and data doesn't exist yet
+    if (open && !chartData && !loading) {
+      onLoadCharts();
+    }
+  };
+
   return (
-    <Sheet>
+    <Sheet open={isOpen} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" onClick={onLoadCharts}>
+        <Button variant="ghost" size="icon">
           <Menu color="white" className="h-5 w-5" />
         </Button>
       </SheetTrigger>
@@ -270,7 +281,7 @@ export function Sidebar({ chartData, loading, onLoadCharts }: SidebarProps) {
         <SheetHeader>
           <SheetTitle>Sentiment Charts</SheetTitle>
           <SheetDescription>
-            {chartData ? `Analysis for "${chartData.query}"` : "Click to load charts"}
+            {chartData ? `Analysis for "${chartData.query}"` : "Charts will load automatically"}
           </SheetDescription>
         </SheetHeader>
         
@@ -301,7 +312,7 @@ export function Sidebar({ chartData, loading, onLoadCharts }: SidebarProps) {
         ) : (
           <div className="flex flex-col items-center justify-center py-12 space-y-4">
             <p className="text-gray-500 text-sm text-center">
-              Charts will appear here.<br/>Click the menu icon to load.
+              No charts loaded yet.<br/>Charts will load when you open this sidebar.
             </p>
           </div>
         )}

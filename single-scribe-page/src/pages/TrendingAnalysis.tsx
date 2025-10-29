@@ -130,7 +130,7 @@ const TrendingAnalysis = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [analyzeComponents, setAnalyzeComponents] = useState(false);
-  const [topN, setTopN] = useState(5);
+  const [topN, setTopN] = useState(1);
   
   // Cache to store fetched data per category
   const [dataCache, setDataCache] = useState<Record<string, TrendingResponse>>({});
