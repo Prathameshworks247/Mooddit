@@ -7,6 +7,8 @@ import pandas as pd
 from datetime import datetime, timedelta
 from src.reddit_scraper import fetch_reddit_posts
 from src.sentiment_analysis import analyze_sentiment
+from src.trending_discovery import get_trending_by_category, get_trending_posts_with_scores
+from src.topic_extractor import extract_top_trending_topics
 from dotenv import load_dotenv
 import google.generativeai as genai
 
@@ -29,13 +31,14 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Enable CORS
+# Enable CORS - Allow access from any device on the network
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your frontend URL
-    allow_credentials=True,
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=False,  # Must be False when allow_origins=["*"]
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],  # Expose all headers to the client
 )
 
 # Request/Response Models
@@ -117,12 +120,21 @@ class ChartDataResponse(BaseModel):
     sentiment_posts_over_time: List[SentimentPostsOverTime]
 
 # RAG-specific models
+class ConversationTurn(BaseModel):
+    question: str = Field(..., description="Previous question asked")
+    answer: str = Field(..., description="Previous answer given")
+    components: Optional[List[str]] = Field(default=None, description="Components mentioned in this turn")
+
 class RAGRequest(BaseModel):
     query: str = Field(..., description="Topic to analyze from Reddit", min_length=1)
     question: str = Field(..., description="Question to ask about the data", min_length=1)
     limit: int = Field(default=100, description="Number of posts to fetch", ge=10, le=500)
     time_window_hours: int = Field(default=48, description="Time window in hours", ge=1, le=168)
     include_context: bool = Field(default=True, description="Include source posts in response")
+    conversation_history: Optional[List[ConversationTurn]] = Field(
+        default=None, 
+        description="Previous Q&A pairs for context-aware follow-up questions"
+    )
 
 class ComponentSentiment(BaseModel):
     component: str = Field(..., description="Component or aspect name")
@@ -150,6 +162,47 @@ class RAGResponse(BaseModel):
     time_range: str
     source_posts: Optional[List[SourcePost]] = None
     model_used: str
+    conversation_turn: Optional[ConversationTurn] = Field(
+        default=None,
+        description="Current Q&A turn to add to conversation history for next request"
+    )
+
+# Trending-specific models
+class TrendingTopicInfo(BaseModel):
+    topic: str = Field(..., description="Topic name")
+    rank: int = Field(..., description="Trending rank")
+    post_count: int = Field(..., description="Number of posts about this topic")
+    total_score: int = Field(..., description="Total Reddit score")
+    total_comments: int = Field(..., description="Total comments")
+    avg_velocity: float = Field(..., description="Average velocity (engagement per hour)")
+    topic_score: float = Field(..., description="Calculated trending score")
+    trending_strength: float = Field(..., description="Normalized trending strength (0-100)")
+    subreddits: List[str] = Field(..., description="Subreddits where topic is trending")
+    subreddit_count: int = Field(..., description="Number of subreddits")
+    variants: Optional[List[str]] = Field(default=None, description="Topic name variations")
+
+class TrendingTopicAnalysis(BaseModel):
+    topic_info: TrendingTopicInfo
+    sentiment_analysis: SentimentSummary
+    component_analysis: Optional[List[ComponentSentiment]] = None
+    key_insights: Optional[str] = None
+    trending_duration_hours: Optional[float] = None
+    sample_posts: List[SourcePost]
+
+class TrendingRequest(BaseModel):
+    time_window_hours: int = Field(default=24, description="Time window for trending posts", ge=1, le=168)
+    top_n: int = Field(default=10, description="Number of top topics to analyze", ge=1, le=20)
+    category: str = Field(default="all", description="Category (all, technology, gaming, news, etc.)")
+    min_posts: int = Field(default=2, description="Minimum posts for a topic", ge=1)
+    analyze_sentiment: bool = Field(default=True, description="Perform full sentiment analysis")
+    analyze_components: bool = Field(default=True, description="Perform component analysis using RAG")
+
+class TrendingResponse(BaseModel):
+    trending_topics: List[TrendingTopicAnalysis]
+    total_topics_found: int
+    analysis_time: str
+    time_window_hours: int
+    category: str
 
 @app.get("/")
 async def root():
@@ -161,7 +214,15 @@ async def root():
             "analyze": "/api/analyze (POST) - Full sentiment analysis with posts",
             "charts": "/api/charts (POST) - Chart data optimized for Recharts",
             "rag": "/api/rag (POST) - Ask questions about Reddit sentiment data (AI-powered)",
+            "trending": "/api/trending/analyze (POST) - Discover and analyze trending topics",
             "health": "/health (GET) - Health check"
+        },
+        "features": {
+            "sentiment_analysis": True,
+            "time_series_charts": True,
+            "rag_qa": gemini_model is not None,
+            "component_analysis": gemini_model is not None,
+            "trending_discovery": True
         },
         "gemini_configured": gemini_model is not None
     }
@@ -189,7 +250,7 @@ async def analyze_sentiment_endpoint(request: AnalysisRequest):
             raise HTTPException(status_code=404, detail="No posts found for the given query")
         
         posts_df["created_utc"] = pd.to_datetime(posts_df["created_utc"], unit="s")
-
+        
         # Filter to specified time window
         time_cutoff = datetime.utcnow() - timedelta(hours=request.time_window_hours)
         filtered_df = posts_df[posts_df["created_utc"] >= time_cutoff]
@@ -598,18 +659,30 @@ async def ask_question_about_sentiment(request: RAGRequest):
         
         # Step 4: Generate answer using Gemini
         # Enhanced prompt for component-wise analysis
+        
+        # Build conversation history context if provided
+        conversation_context = ""
+        if request.conversation_history and len(request.conversation_history) > 0:
+            conversation_context = "\n\nPrevious Conversation Context:\n"
+            for i, turn in enumerate(request.conversation_history[-3:], 1):  # Keep last 3 turns
+                conversation_context += f"\nQ{i}: {turn.question}\nA{i}: {turn.answer[:300]}...\n"
+                if turn.components:
+                    conversation_context += f"Components discussed: {', '.join(turn.components)}\n"
+            conversation_context += "\n[Use this context to understand follow-up questions and maintain conversation continuity]\n"
+        
         prompt = f"""You are a Reddit sentiment analysis assistant. Based on the following Reddit data, please answer the user's question with detailed component-wise sentiment analysis.
 
-{context}
+{context}{conversation_context}
 
-User's Question: {request.question}
+Current Question: {request.question}
 
 Please provide:
-1. A clear, direct answer to the question
+1. A clear, direct answer to the question (if this is a follow-up question, reference previous context)
 2. Identify key components/aspects being discussed (e.g., for "iPhone 17": camera, battery, display, price, design, performance, etc.)
 3. For each component, analyze the sentiment and provide specific examples
 4. Support your analysis with mentions from the posts
 5. Keep your main response concise (2-3 paragraphs)
+6. If the question references "it", "this", "that", or other pronouns, use the conversation context to understand what is being referenced
 
 Then, provide a component breakdown in this JSON format at the end:
 
@@ -681,6 +754,17 @@ Answer:"""
         last_post = filtered_df["created_utc"].max()
         time_range = f"{first_post.strftime('%Y-%m-%d %H:%M')} to {last_post.strftime('%Y-%m-%d %H:%M')}"
         
+        # Build conversation turn for next request
+        current_components = None
+        if component_analysis:
+            current_components = [comp.component for comp in component_analysis]
+        
+        current_turn = ConversationTurn(
+            question=request.question,
+            answer=answer,
+            components=current_components
+        )
+        
         return RAGResponse(
             query=request.query,
             question=request.question,
@@ -691,7 +775,232 @@ Answer:"""
             component_analysis=component_analysis,
             time_range=time_range,
             source_posts=source_posts,
-            model_used="gemini-2.0-flash-exp"
+            model_used="gemini-2.0-flash-exp",
+            conversation_turn=current_turn
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.post("/api/trending/analyze", response_model=TrendingResponse)
+async def analyze_trending_topics(request: TrendingRequest):
+    """
+    Discover and analyze trending topics from Reddit
+    
+    This endpoint:
+    1. Discovers trending posts from Reddit
+    2. Extracts trending topics using keyword analysis
+    3. Performs sentiment analysis on each topic
+    4. (Optional) Performs component-wise analysis using RAG
+    
+    - **time_window_hours**: How far back to look (1-168 hours)
+    - **top_n**: Number of topics to analyze (1-20)
+    - **category**: Category filter (all, technology, gaming, news, etc.)
+    - **min_posts**: Minimum posts required for a topic
+    - **analyze_sentiment**: Perform sentiment analysis
+    - **analyze_components**: Perform component analysis with RAG (requires Gemini)
+    """
+    try:
+        # Step 1: Fetch trending posts from Reddit
+        print(f"Fetching trending posts from Reddit (category: {request.category})...")
+        trending_posts_df = get_trending_by_category(
+            category=request.category,
+            time_window_hours=request.time_window_hours,
+            limit=100
+        )
+        
+        if trending_posts_df.empty:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"No trending posts found in the last {request.time_window_hours} hours"
+            )
+        
+        print(f"Found {len(trending_posts_df)} trending posts")
+        
+        # Step 2: Extract trending topics
+        print("Extracting trending topics...")
+        trending_topics = extract_top_trending_topics(
+            trending_posts_df,
+            top_n=request.top_n,
+            min_posts=request.min_posts
+        )
+        
+        if not trending_topics:
+            raise HTTPException(
+                status_code=404,
+                detail="No trending topics extracted from posts"
+            )
+        
+        print(f"Extracted {len(trending_topics)} trending topics")
+        
+        # Step 3: Analyze each trending topic
+        analyzed_topics = []
+        
+        for topic_info in trending_topics:
+            topic_name = topic_info['topic']
+            print(f"Analyzing topic: {topic_name}")
+            
+            try:
+                # Fetch posts for this specific topic
+                topic_posts_df = fetch_reddit_posts(topic_name, limit=100)
+                
+                if topic_posts_df.empty:
+                    print(f"  No posts found for {topic_name}, skipping...")
+                    continue
+                
+                # Perform sentiment analysis
+                sentiment_summary = None
+                component_analysis = None
+                sample_posts = []
+                
+                if request.analyze_sentiment:
+                    # Analyze sentiment
+                    topic_posts_df["sentiment_label"], topic_posts_df["sentiment_score"] = zip(
+                        *topic_posts_df["title"].apply(analyze_sentiment)
+                    )
+                    
+                    # Normalize labels
+                    def normalize_label(label):
+                        label_lower = label.lower()
+                        if label_lower in ["positive", "label_2"]:
+                            return "positive"
+                        elif label_lower in ["negative", "label_0"]:
+                            return "negative"
+                        else:
+                            return "neutral"
+                    
+                    topic_posts_df["sentiment_normalized"] = topic_posts_df["sentiment_label"].apply(normalize_label)
+                    
+                    # Count sentiments
+                    sentiment_counts = topic_posts_df["sentiment_normalized"].value_counts().to_dict()
+                    sentiment_summary = SentimentSummary(
+                        positive=sentiment_counts.get("positive", 0),
+                        negative=sentiment_counts.get("negative", 0),
+                        neutral=sentiment_counts.get("neutral", 0)
+                    )
+                    
+                    # Get sample posts
+                    topic_posts_df["created_utc"] = pd.to_datetime(topic_posts_df["created_utc"], unit="s")
+                    sample_posts_df = topic_posts_df.nlargest(5, "score")
+                    sample_posts = [
+                        SourcePost(
+                            title=row["title"],
+                            url=row["url"],
+                            sentiment=row["sentiment_normalized"],
+                            selftext=row.get("selftext", ""),
+                            score=int(row["score"]),
+                            created_utc=row["created_utc"].isoformat()
+                        )
+                        for _, row in sample_posts_df.iterrows()
+                    ]
+                    
+                    print(f"  Sentiment: {sentiment_summary.positive}+ / {sentiment_summary.negative}- / {sentiment_summary.neutral}=")
+                
+                # Component analysis with RAG (if enabled and Gemini available)
+                if request.analyze_components and gemini_model and sentiment_summary:
+                    try:
+                        print(f"  Running component analysis with RAG...")
+                        
+                        # Build context for Gemini (reuse RAG logic)
+                        sample_for_rag = topic_posts_df.nlargest(20, "score")
+                        context_parts = [
+                            f"Trending Topic: {topic_name}",
+                            f"Total posts: {len(topic_posts_df)}",
+                            f"Sentiment: {sentiment_summary.positive} positive, {sentiment_summary.negative} negative, {sentiment_summary.neutral} neutral",
+                            "",
+                            "Sample posts:"
+                        ]
+                        
+                        for idx, row in sample_for_rag.head(15).iterrows():
+                            context_parts.append(
+                                f"- [{row['sentiment_normalized'].upper()}] (Score: {row['score']}) \"{row['title']}\""
+                            )
+                        
+                        context = "\n".join(context_parts)
+                        
+                        # Generate component analysis
+                        prompt = f"""Analyze this trending Reddit topic and identify key components/aspects being discussed.
+
+{context}
+
+Identify the main components or aspects people are discussing about "{topic_name}" (e.g., for a product: features, price, design; for an event: location, timing, impact).
+
+Provide a component breakdown in this JSON format:
+
+COMPONENT_ANALYSIS:
+[
+  {{
+    "component": "component_name",
+    "sentiment": "positive/negative/neutral/mixed",
+    "confidence": "high/medium/low",
+    "summary": "brief summary",
+    "mention_count": estimated_mentions
+  }}
+]
+
+Only return the JSON array, no other text."""
+                        
+                        response = gemini_model.generate_content(prompt)
+                        response_text = response.text
+                        
+                        # Parse component analysis
+                        if "COMPONENT_ANALYSIS:" in response_text:
+                            parts = response_text.split("COMPONENT_ANALYSIS:")
+                            response_text = parts[1].strip()
+                        
+                        import json
+                        import re
+                        json_match = re.search(r'\[(.*?)\]', response_text, re.DOTALL)
+                        if json_match:
+                            json_str = '[' + json_match.group(1) + ']'
+                            components_data = json.loads(json_str)
+                            component_analysis = [
+                                ComponentSentiment(**comp) for comp in components_data
+                            ]
+                            print(f"  Found {len(component_analysis)} components")
+                    
+                    except Exception as e:
+                        print(f"  Component analysis failed: {e}")
+                        component_analysis = None
+                
+                # Calculate trending duration
+                if not topic_posts_df.empty and "created_utc" in topic_posts_df.columns:
+                    oldest_post = topic_posts_df["created_utc"].min()
+                    trending_duration = (datetime.utcnow() - oldest_post).total_seconds() / 3600
+                else:
+                    trending_duration = None
+                
+                # Build analysis result
+                topic_analysis = TrendingTopicAnalysis(
+                    topic_info=TrendingTopicInfo(**topic_info),
+                    sentiment_analysis=sentiment_summary or SentimentSummary(positive=0, negative=0, neutral=0),
+                    component_analysis=component_analysis,
+                    key_insights=None,  # Could add AI-generated insights here
+                    trending_duration_hours=round(trending_duration, 1) if trending_duration else None,
+                    sample_posts=sample_posts
+                )
+                
+                analyzed_topics.append(topic_analysis)
+            
+            except Exception as topic_error:
+                print(f"  Error analyzing {topic_name}: {topic_error}")
+                continue
+        
+        if not analyzed_topics:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to analyze any topics"
+            )
+        
+        # Build response
+        return TrendingResponse(
+            trending_topics=analyzed_topics,
+            total_topics_found=len(trending_topics),
+            analysis_time=datetime.utcnow().isoformat(),
+            time_window_hours=request.time_window_hours,
+            category=request.category
         )
     
     except HTTPException:

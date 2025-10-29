@@ -10,6 +10,10 @@ A FastAPI-based backend service for analyzing sentiment of Reddit posts using tr
 - 📁 CSV export of analysis results
 - 🌐 RESTful API with JSON responses
 - ⚡ Fast and async processing with FastAPI
+- 🤖 **NEW**: RAG (Retrieval Augmented Generation) endpoint with Google Gemini
+- 🔧 **NEW**: Component-wise sentiment analysis (e.g., camera, battery, price)
+- 💬 **NEW**: Conversation context for multi-turn Q&A
+- 🔥 **NEW**: Automatic trending topics discovery and analysis
 
 ## Installation
 
@@ -277,6 +281,147 @@ const data = await response.json();
 console.log(data);
 ```
 
+## RAG Endpoint & Conversation Context 🤖💬
+
+The API now includes an intelligent Q&A endpoint powered by Google Gemini that can:
+- Answer questions about Reddit sentiment data
+- Perform component-wise analysis (e.g., "camera", "battery" for phones)
+- Maintain conversation context for follow-up questions
+
+### Quick Start
+
+**1. Set up your Gemini API key:**
+```bash
+cp .env.example .env
+# Edit .env and add your GEMINI_API_KEY
+```
+
+**2. Ask a question:**
+```bash
+curl -X POST "http://localhost:8000/api/rag" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "iPhone 17",
+    "question": "What do people think about the iPhone 17?"
+  }'
+```
+
+**3. Ask a follow-up (with context):**
+```bash
+curl -X POST "http://localhost:8000/api/rag" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "iPhone 17",
+    "question": "What about the camera?",
+    "conversation_history": [
+      {
+        "question": "What do people think about the iPhone 17?",
+        "answer": "...",
+        "components": ["camera", "battery", "price"]
+      }
+    ]
+  }'
+```
+
+The AI understands "What about" refers to iPhone 17! 🎯
+
+### Features
+- ✅ Multi-turn conversations
+- ✅ Pronoun resolution ("it", "that", "this")
+- ✅ Component-wise sentiment breakdown
+- ✅ Confidence scoring
+- ✅ Source post citations
+
+### Documentation
+- **Quick Start**: [`QUICK_START_CONVERSATION.md`](./QUICK_START_CONVERSATION.md)
+- **Full Guide**: [`CONVERSATION_CONTEXT.md`](./CONVERSATION_CONTEXT.md)
+- **Component Analysis**: [`COMPONENT_ANALYSIS.md`](./COMPONENT_ANALYSIS.md)
+- **RAG Endpoint**: [`RAG_ENDPOINT.md`](./RAG_ENDPOINT.md)
+
+### Test It
+```bash
+python test_conversation.py
+```
+
+## Trending Topics Discovery 🔥
+
+Automatically discover and analyze what's trending on Reddit right now!
+
+### Quick Start
+
+```bash
+curl -X POST "http://localhost:8000/api/trending/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "time_window_hours": 24,
+    "top_n": 10,
+    "category": "all",
+    "analyze_components": true
+  }'
+```
+
+### What It Does
+
+1. **Discovers** trending posts from Reddit (r/popular or specific categories)
+2. **Extracts** trending topics using NLP and pattern matching
+3. **Analyzes** sentiment for each topic
+4. **Breaks down** component-wise sentiment (camera, price, etc.)
+5. **Ranks** topics by trending momentum
+
+### Categories Available
+
+- `all` - All of Reddit (r/popular)
+- `technology` - Tech news and gadgets
+- `gaming` - Gaming news and releases
+- `news` - World and local news
+- `entertainment` - Movies, TV, music
+- `sports` - Sports events and teams
+- `science` - Science and space
+
+### Example Response
+
+```json
+{
+  "trending_topics": [
+    {
+      "topic_info": {
+        "topic": "iPhone 17",
+        "rank": 1,
+        "post_count": 45,
+        "trending_strength": 100.0,
+        "subreddits": ["apple", "technology", "gadgets"]
+      },
+      "sentiment_analysis": {
+        "positive": 120,
+        "negative": 35,
+        "neutral": 180
+      },
+      "component_analysis": [
+        {
+          "component": "camera",
+          "sentiment": "positive",
+          "summary": "Users praise the improved camera system"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Features
+
+- ✅ Real-time trending discovery
+- ✅ Multi-category support
+- ✅ Velocity-based ranking (trending momentum)
+- ✅ Component-wise analysis
+- ✅ Sentiment trends over time
+- ✅ Cross-subreddit topic tracking
+
+### Documentation & Testing
+
+- **Full Guide**: [`TRENDING_TOPICS.md`](./TRENDING_TOPICS.md)
+- **Test Script**: `python test_trending.py`
+
 ## Project Structure
 
 ```
@@ -301,6 +446,7 @@ backend/
 - **Pandas**: Data manipulation and analysis
 - **Transformers**: Hugging Face transformer models
 - **RoBERTa**: State-of-the-art sentiment analysis model
+- **Google Gemini**: Advanced LLM for RAG and component analysis
 - **Uvicorn**: Lightning-fast ASGI server
 
 ## CORS Configuration

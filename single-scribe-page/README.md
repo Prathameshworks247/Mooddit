@@ -1,4 +1,78 @@
-# Welcome to your Lovable project
+# Trending Analysis Dashboard 🔥
+
+A beautiful, interactive React dashboard for visualizing Reddit trending topics with AI-powered sentiment analysis.
+
+## Features
+
+- **Real-time Trending Topics**: Discover what's hot on Reddit across 7 categories
+- **Sentiment Analysis**: Visualize positive, negative, and neutral sentiment for each topic
+- **AI Component Analysis**: Optional deep-dive into sentiment by components (camera, battery, price, etc.)
+- **Interactive UI**: Beautiful cards, progress bars, and responsive design
+- **Category Filtering**: Technology, Gaming, News, Entertainment, Sports, Science, All
+- **Sample Posts**: View top Reddit posts for each trending topic
+- **Subreddit Badges**: See where topics are trending
+- **Trending Metrics**: Post count, score, comments, velocity, and trending strength
+
+## Quick Start
+
+### Prerequisites
+- Node.js & npm installed
+- Backend API running on `http://localhost:8000`
+
+### Installation
+
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Open in browser
+# http://localhost:5173/trending
+```
+
+### Backend Setup
+
+Make sure the backend is running:
+
+```bash
+cd ../backend
+source venv/bin/activate
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+## Documentation
+
+- **[QUICK_START.md](./QUICK_START.md)** - Complete setup guide with troubleshooting
+- **[TRENDING_FRONTEND.md](./TRENDING_FRONTEND.md)** - Detailed feature documentation
+
+## Routes
+
+- `/` - Home page with feature cards
+- `/trending` - Trending Analysis Dashboard (main feature)
+- `/main` - Main page
+- `/test` - Test page
+
+## Tech Stack
+
+- **React 18** - UI framework
+- **TypeScript** - Type safety
+- **Vite** - Build tool
+- **Tailwind CSS** - Styling
+- **shadcn/ui** - Component library
+- **Lucide React** - Icons
+- **React Router** - Routing
+- **Tanstack Query** - Data fetching (ready for use)
+
+## Recent Fixes
+
+### ✅ Infinite Refetch Loop Fixed
+The component was fetching data repeatedly. Fixed by:
+- Removing `selectedCategory` from `useEffect` dependencies
+- Only fetching once on initial mount
+- Manually triggering fetches on category change
+- Adding loading state check to prevent simultaneous requests
 
 ## Project info
 
