@@ -8,19 +8,10 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
+import { SentimentDistributionPieChart } from "./charts/SentimentDistributionPieChart";
+import { PostsOverTimeChart } from "./charts/PostsOverTimeChart";
+import { SentimentTrendChart } from "./charts/SentimentTrendChart";
+import { SentimentBreakdownLineChart } from "./charts/SentimentBreakdownLineChart";
 
 // types.ts
 export interface SentimentDistribution {
@@ -264,167 +255,16 @@ export function Sidebar() {
         <div className="mt-6 w-full">
           <SentimentDistributionPieChart data={data.sentiment_distribution} />
         </div>
-        <div className="mt-6 w-full">
+        <div className="mt-14 w-full">
           <PostsOverTimeChart data={data.posts_over_time} />
         </div>
-        <div className="mt-6 w-full">
+        <div className="mt-14 w-full">
           <SentimentTrendChart data={data.sentiment_over_time} />
         </div>
-        <div className="mt-6 w-full">
+        <div className="mt-14 w-full">
           <SentimentBreakdownLineChart data={data.sentiment_posts_over_time} />
         </div>
       </SheetContent>
     </Sheet>
   );
 }
-
-interface PropsSentimentDistribution {
-  data: SentimentDistribution[];
-}
-
-const COLORS = ["#10b981", "#ef4444", "#94a3b8"];
-
-export const SentimentDistributionPieChart = ({
-  data,
-}: PropsSentimentDistribution) => {
-  return (
-    <ResponsiveContainer width="100%" height={300}>
-      <PieChart>
-        <Pie
-          data={data}
-          cx="50%"
-          cy="50%"
-          labelLine={false}
-          label={({ percentage }) => `${percentage.toFixed(1)}%`}
-          outerRadius={80}
-          fill="#8884d8"
-          dataKey="value"
-        >
-          {data.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-          ))}
-        </Pie>
-        <Tooltip />
-        <Legend />
-      </PieChart>
-    </ResponsiveContainer>
-  );
-};
-
-interface PropsPostsTimePoint {
-  data: PostsTimePoint[];
-}
-
-export const PostsOverTimeChart = ({ data }: PropsPostsTimePoint) => {
-  const formattedData = data.map((d) => ({
-    ...d,
-    label: `${d.date} ${d.time}`,
-  }));
-
-  return (
-    <ResponsiveContainer width="100%" height={300}>
-      <LineChart
-        data={formattedData}
-        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-      >
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="time" />
-        <YAxis />
-        <Tooltip />
-        <Line
-          type="monotone"
-          dataKey="posts"
-          stroke="#3b82f6"
-          strokeWidth={2}
-          dot={true}
-        />
-      </LineChart>
-    </ResponsiveContainer>
-  );
-};
-
-interface PropsSentimentTimePoint {
-  data: SentimentTimePoint[];
-}
-
-export const SentimentTrendChart = ({ data }: PropsSentimentTimePoint) => {
-  const formattedData = data.map((d) => ({
-    ...d,
-    label: `${d.time}`,
-    average_sentiment: Number(d.average_sentiment.toFixed(3)),
-  }));
-
-  return (
-    <ResponsiveContainer width="100%" height={300}>
-      <LineChart
-        data={formattedData}
-        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-      >
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="time" />
-        <YAxis domain={[-1, 1]} />
-        <Tooltip />
-        <Legend />
-        <Line
-          type="monotone"
-          dataKey="average_sentiment"
-          stroke="#8b5cf6"
-          strokeWidth={2}
-          dot={{ fill: "#8b5cf6" }}
-          name="Avg Sentiment"
-        />
-      </LineChart>
-    </ResponsiveContainer>
-  );
-};
-
-interface PropsSentimentPostsTimePoint {
-  /** Expected shape: sentiment_posts_over_time array from the JSON */
-  data: SentimentPostsTimePoint[];
-}
-
-export const SentimentBreakdownLineChart = ({
-  data,
-}: PropsSentimentPostsTimePoint) => {
-  // Recharts likes a short label for the X-axis – we use the `time` field.
-  const chartData = data.map((d) => ({
-    time: d.time,
-    positive: d.positive,
-    neutral: d.neutral,
-  }));
-
-  return (
-    <ResponsiveContainer width="100%" height={300}>
-      <LineChart
-        data={chartData}
-        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-      >
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="time" />
-        <YAxis />
-        <Tooltip />
-        <Legend />
-
-        {/* Positive line */}
-        <Line
-          type="monotone"
-          dataKey="positive"
-          stroke="#10b981" // green-500
-          strokeWidth={2}
-          dot={{ fill: "#10b981" }}
-          name="Positive"
-        />
-
-        {/* Neutral line */}
-        <Line
-          type="monotone"
-          dataKey="neutral"
-          stroke="#94a3b8" // slate-400
-          strokeWidth={2}
-          dot={{ fill: "#94a3b8" }}
-          name="Neutral"
-        />
-      </LineChart>
-    </ResponsiveContainer>
-  );
-};
