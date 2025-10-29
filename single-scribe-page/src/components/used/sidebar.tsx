@@ -236,11 +236,30 @@ const data = {
   ],
 };
 
-export function Sidebar() {
+interface ChartData {
+  query: string;
+  total_posts: number;
+  time_window_hours: number;
+  actual_time_range_hours?: number;
+  first_post_time?: string;
+  last_post_time?: string;
+  sentiment_distribution: SentimentDistribution[];
+  sentiment_over_time: SentimentTimePoint[];
+  posts_over_time: PostsTimePoint[];
+  sentiment_posts_over_time: SentimentPostsTimePoint[];
+}
+
+interface SidebarProps {
+  chartData: ChartData | null;
+  loading: boolean;
+  onLoadCharts: () => void;
+}
+
+export function Sidebar({ chartData, loading, onLoadCharts }: SidebarProps) {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon">
+        <Button variant="ghost" size="icon" onClick={onLoadCharts}>
           <Menu color="white" className="h-5 w-5" />
         </Button>
       </SheetTrigger>
@@ -249,21 +268,43 @@ export function Sidebar() {
         className="w-[300px] sm:w-[400px] overflow-y-auto scrollbar-hide"
       >
         <SheetHeader>
-          <SheetTitle>Your Charts</SheetTitle>
-          <SheetDescription>Charts will appear here</SheetDescription>
+          <SheetTitle>Sentiment Charts</SheetTitle>
+          <SheetDescription>
+            {chartData ? `Analysis for "${chartData.query}"` : "Click to load charts"}
+          </SheetDescription>
         </SheetHeader>
-        <div className="mt-6 w-full">
-          <SentimentDistributionPieChart data={data.sentiment_distribution} />
-        </div>
-        <div className="mt-14 w-full">
-          <PostsOverTimeChart data={data.posts_over_time} />
-        </div>
-        <div className="mt-14 w-full">
-          <SentimentTrendChart data={data.sentiment_over_time} />
-        </div>
-        <div className="mt-14 w-full">
-          <SentimentBreakdownLineChart data={data.sentiment_posts_over_time} />
-        </div>
+        
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-12 space-y-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+            <p className="text-gray-500 text-sm">Loading charts...</p>
+          </div>
+        ) : chartData ? (
+          <>
+            <div className="mt-6 w-full">
+              <h3 className="text-sm font-semibold mb-2">Sentiment Distribution</h3>
+              <SentimentDistributionPieChart data={chartData.sentiment_distribution} />
+            </div>
+            <div className="mt-14 w-full">
+              <h3 className="text-sm font-semibold mb-2">Posts Over Time</h3>
+              <PostsOverTimeChart data={chartData.posts_over_time} />
+            </div>
+            <div className="mt-14 w-full">
+              <h3 className="text-sm font-semibold mb-2">Sentiment Trend</h3>
+              <SentimentTrendChart data={chartData.sentiment_over_time} />
+            </div>
+            <div className="mt-14 w-full">
+              <h3 className="text-sm font-semibold mb-2">Sentiment Breakdown</h3>
+              <SentimentBreakdownLineChart data={chartData.sentiment_posts_over_time} />
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-12 space-y-4">
+            <p className="text-gray-500 text-sm text-center">
+              Charts will appear here.<br/>Click the menu icon to load.
+            </p>
+          </div>
+        )}
       </SheetContent>
     </Sheet>
   );

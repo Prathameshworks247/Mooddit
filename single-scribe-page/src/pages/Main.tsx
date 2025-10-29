@@ -4,7 +4,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -79,6 +78,52 @@ interface PredictionData {
   generated_at: string;
 }
 
+interface SentimentDistribution {
+  name: string;
+  value: number;
+  percentage: number;
+}
+
+interface SentimentOverTime {
+  timestamp: string;
+  date: string;
+  time: string;
+  average_sentiment: number;
+  positive_count: number;
+  negative_count: number;
+  neutral_count: number;
+  total_posts: number;
+}
+
+interface PostsOverTime {
+  timestamp: string;
+  date: string;
+  time: string;
+  posts: number;
+}
+
+interface SentimentPostsOverTime {
+  timestamp: string;
+  date: string;
+  time: string;
+  positive: number;
+  negative: number;
+  neutral: number;
+}
+
+interface ChartData {
+  query: string;
+  total_posts: number;
+  time_window_hours: number;
+  actual_time_range_hours?: number;
+  first_post_time?: string;
+  last_post_time?: string;
+  sentiment_distribution: SentimentDistribution[];
+  sentiment_over_time: SentimentOverTime[];
+  posts_over_time: PostsOverTime[];
+  sentiment_posts_over_time: SentimentPostsOverTime[];
+}
+
 const Main = () => {
   const singleReqRef = useRef<boolean>(false);
 
@@ -100,6 +145,8 @@ const Main = () => {
     null
   );
   const [loadingPrediction, setLoadingPrediction] = useState(false);
+  const [chartData, setChartData] = useState<ChartData | null>(null);
+  const [loadingCharts, setLoadingCharts] = useState(false);
 
   // const handleSend = () => {
   //   if (!input.trim()) return;
@@ -227,6 +274,27 @@ const Main = () => {
     }
   };
 
+  const handleShowCharts = async () => {
+    if (chartData) return; // Don't reload if already loaded
+    
+    setLoadingCharts(true);
+    try {
+      const response = await axios.post("http://localhost:8000/api/charts", {
+        query: prompt,
+        limit: 300,
+        time_window_hours: 48,
+        interval_hours: 3,
+        trim_empty_intervals: true,
+      });
+      setChartData(response.data as ChartData);
+    } catch (e) {
+      console.error("Charts error:", e);
+      setChartData(null);
+    } finally {
+      setLoadingCharts(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-black">
       <header className="flex flex-row justify-between items-center border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm px-6 py-4 sticky top-0 z-10">
@@ -251,7 +319,11 @@ const Main = () => {
             <Zap className="h-4 w-4 mr-2" />
             Predict Trends
           </Button>
-          <Sidebar />
+          <Sidebar
+            chartData={chartData}
+            loading={loadingCharts}
+            onLoadCharts={handleShowCharts}
+          />
         </div>
       </header>
       <ScrollArea className="flex-1 px-4">
