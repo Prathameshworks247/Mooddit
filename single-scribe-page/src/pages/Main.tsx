@@ -4,6 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { PredictionChart } from "@/components/used/charts/Prediction";
 import {
   Dialog,
   DialogContent,
@@ -276,7 +277,7 @@ const Main = () => {
 
   const handleShowCharts = async () => {
     if (chartData) return; // Don't reload if already loaded
-    
+
     setLoadingCharts(true);
     try {
       const response = await axios.post("http://localhost:8000/api/charts", {
@@ -477,119 +478,9 @@ const Main = () => {
                   </div>
                 </CardContent>
               </Card>
-
-              {/* Predictions */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <Zap className="h-5 w-5 text-purple-500" />
-                  <h3 className="text-lg font-semibold text-white">
-                    Future Predictions
-                  </h3>
-                  <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30">
-                    {predictionData.prediction_method}
-                  </Badge>
-                </div>
-
-                {predictionData.predictions.map((pred, index) => {
-                  const isPositive = pred.predicted_sentiment === "positive";
-                  const isNegative = pred.predicted_sentiment === "negative";
-                  const confidencePercent = Math.round(pred.confidence * 100);
-
-                  return (
-                    <Card
-                      key={index}
-                      className="bg-gray-900/50 border-gray-800 hover:border-purple-500/50 transition-all"
-                    >
-                      <CardContent className="p-5">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 space-y-3">
-                            {/* Header */}
-                            <div className="flex items-center gap-3">
-                              <Clock className="h-4 w-4 text-gray-400" />
-                              <span className="text-sm text-gray-400">
-                                {new Date(pred.timestamp).toLocaleString(
-                                  "en-US",
-                                  {
-                                    month: "short",
-                                    day: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  }
-                                )}
-                              </span>
-                              <Badge
-                                variant="outline"
-                                className="bg-gray-800 border-gray-700"
-                              >
-                                +{pred.hours_ahead}h
-                              </Badge>
-                            </div>
-
-                            {/* Sentiment */}
-                            <div className="flex items-center gap-4">
-                              <div>
-                                <p className="text-xs text-gray-400 mb-1">
-                                  Predicted Sentiment
-                                </p>
-                                <Badge
-                                  className={
-                                    isPositive
-                                      ? "bg-green-500/20 text-green-300 border-green-500/30 text-base"
-                                      : isNegative
-                                      ? "bg-red-500/20 text-red-300 border-red-500/30 text-base"
-                                      : "bg-gray-500/20 text-gray-300 border-gray-500/30 text-base"
-                                  }
-                                >
-                                  {pred.predicted_sentiment.toUpperCase()}
-                                </Badge>
-                              </div>
-
-                              <div>
-                                <p className="text-xs text-gray-400 mb-1">
-                                  Score
-                                </p>
-                                <p
-                                  className={
-                                    isPositive
-                                      ? "text-xl font-bold text-green-400"
-                                      : isNegative
-                                      ? "text-xl font-bold text-red-400"
-                                      : "text-xl font-bold text-gray-400"
-                                  }
-                                >
-                                  {pred.predicted_sentiment_score > 0
-                                    ? "+"
-                                    : ""}
-                                  {pred.predicted_sentiment_score.toFixed(3)}
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* Confidence */}
-                            <div>
-                              <div className="flex items-center justify-between mb-1">
-                                <p className="text-xs text-gray-400">
-                                  Confidence
-                                </p>
-                                <p className="text-xs font-semibold text-white">
-                                  {confidencePercent}%
-                                </p>
-                              </div>
-                              <div className="w-full bg-gray-800 rounded-full h-2">
-                                <div
-                                  className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all"
-                                  style={{ width: `${confidencePercent}%` }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+              <div className="max-w-4xl mx-auto">
+                <PredictionChart predictionsData={predictionData.predictions} />
               </div>
-
               {/* Footer Info */}
               <div className="bg-gray-900/30 border border-gray-800 rounded-lg p-4">
                 <div className="flex items-start gap-2">

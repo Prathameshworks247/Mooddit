@@ -13,6 +13,38 @@ import { SentimentDistributionPieChart } from "./charts/SentimentDistributionPie
 import { PostsOverTimeChart } from "./charts/PostsOverTimeChart";
 import { SentimentTrendChart } from "./charts/SentimentTrendChart";
 import { SentimentBreakdownLineChart } from "./charts/SentimentBreakdownLineChart";
+// Chart wrapper component with error boundary
+function ChartWrapper({ title, children }: { title: string; children: React.ReactNode }) {
+  const [hasError, setHasError] = React.useState(false);
+
+  React.useEffect(() => {
+    setHasError(false);
+  }, [children]);
+
+  if (hasError) {
+    return (
+      <div className="mt-6 w-full">
+        <h3 className="text-sm font-semibold mb-2">{title}</h3>
+        <div className="h-[200px] flex items-center justify-center bg-gray-50 rounded">
+          <p className="text-red-500 text-sm">Failed to render chart</p>
+        </div>
+      </div>
+    );
+  }
+
+  try {
+    return (
+      <div className="mt-6 w-full">
+        <h3 className="text-sm font-semibold mb-2">{title}</h3>
+        {children}
+      </div>
+    );
+  } catch (error) {
+    setHasError(true);
+    console.error(`Error rendering ${title}:`, error);
+    return null;
+  }
+}
 
 // types.ts
 export interface SentimentDistribution {
@@ -258,12 +290,18 @@ interface SidebarProps {
 
 export function Sidebar({ chartData, loading, onLoadCharts }: SidebarProps) {
   const [isOpen, setIsOpen] = React.useState(false);
+  const [chartError, setChartError] = React.useState<string | null>(null);
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     // Only load charts when opening and data doesn't exist yet
     if (open && !chartData && !loading) {
-      onLoadCharts();
+      try {
+        onLoadCharts();
+      } catch (error) {
+        console.error("Error loading charts:", error);
+        setChartError("Failed to load charts. Please try again.");
+      }
     }
   };
 
@@ -285,30 +323,33 @@ export function Sidebar({ chartData, loading, onLoadCharts }: SidebarProps) {
           </SheetDescription>
         </SheetHeader>
         
-        {loading ? (
+        {chartError ? (
+          <div className="flex flex-col items-center justify-center py-12 space-y-4">
+            <p className="text-red-500 text-sm text-center">{chartError}</p>
+            <Button onClick={() => { setChartError(null); onLoadCharts(); }} variant="outline" size="sm">
+              Retry
+            </Button>
+          </div>
+        ) : loading ? (
           <div className="flex flex-col items-center justify-center py-12 space-y-4">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
             <p className="text-gray-500 text-sm">Loading charts...</p>
           </div>
         ) : chartData ? (
-          <>
-            <div className="mt-6 w-full">
-              <h3 className="text-sm font-semibold mb-2">Sentiment Distribution</h3>
+          <div className="pb-6">
+            <ChartWrapper title="Sentiment Distribution">
               <SentimentDistributionPieChart data={chartData.sentiment_distribution} />
-            </div>
-            <div className="mt-14 w-full">
-              <h3 className="text-sm font-semibold mb-2">Posts Over Time</h3>
+            </ChartWrapper>
+            <ChartWrapper title="Posts Over Time">
               <PostsOverTimeChart data={chartData.posts_over_time} />
-            </div>
-            <div className="mt-14 w-full">
-              <h3 className="text-sm font-semibold mb-2">Sentiment Trend</h3>
+            </ChartWrapper>
+            <ChartWrapper title="Sentiment Trend">
               <SentimentTrendChart data={chartData.sentiment_over_time} />
-            </div>
-            <div className="mt-14 w-full">
-              <h3 className="text-sm font-semibold mb-2">Sentiment Breakdown</h3>
+            </ChartWrapper>
+            <ChartWrapper title="Sentiment Breakdown">
               <SentimentBreakdownLineChart data={chartData.sentiment_posts_over_time} />
-            </div>
-          </>
+            </ChartWrapper>
+          </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-12 space-y-4">
             <p className="text-gray-500 text-sm text-center">

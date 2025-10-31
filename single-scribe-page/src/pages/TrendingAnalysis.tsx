@@ -249,11 +249,11 @@ const TrendingAnalysis = () => {
   const getSentimentColor = (sentiment: string) => {
     switch (sentiment.toLowerCase()) {
       case "positive":
-        return "bg-green-500/10 text-green-600 border-green-500/20";
+        return "bg-green-500/15 text-green-300 border-green-500/30";
       case "negative":
-        return "bg-red-500/10 text-red-600 border-red-500/20";
+        return "bg-red-500/15 text-red-300 border-red-500/30";
       default:
-        return "bg-gray-500/10 text-gray-600 border-gray-500/20";
+        return "bg-gray-500/15 text-gray-300 border-gray-500/30";
     }
   };
 
@@ -269,74 +269,94 @@ const TrendingAnalysis = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black px-4 py-10 text-gray-100">
+      <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-4xl font-bold flex items-center gap-2">
-              <TrendingUp className="h-8 w-8 text-primary" />
-              Trending Topics
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              Real-time sentiment analysis of what's trending on Reddit
-            </p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="components"
-                checked={analyzeComponents}
-                onCheckedChange={setAnalyzeComponents}
-              />
-              <Label htmlFor="components" className="text-sm">
-                Component Analysis
-              </Label>
+        <div className="rounded-3xl border border-gray-800 bg-gray-900/50 px-6 py-8 shadow-[0_25px_70px_rgba(8,8,35,0.45)] backdrop-blur">
+          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-3">
+              <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1 text-xs font-medium uppercase tracking-wide text-orange-200">
+                <Sparkles className="h-3 w-3" />
+                Live Reddit Insights
+              </div>
+              <div>
+                <h1 className="flex items-center gap-3 text-3xl font-semibold sm:text-4xl">
+                  <span className="rounded-xl bg-gradient-to-br from-orange-500 to-red-500 p-3 text-white shadow-lg shadow-orange-500/30">
+                    <TrendingUp className="h-6 w-6" />
+                  </span>
+                  <span className="bg-gradient-to-r from-white via-orange-200 to-pink-200 bg-clip-text text-transparent">
+                    Trending Topics Radar
+                  </span>
+                </h1>
+                <p className="mt-3 max-w-2xl text-sm text-gray-400 sm:text-base">
+                  Explore the fastest-moving Reddit conversations, measure sentiment in real-time, and surface the components driving each trend forward.
+                </p>
+              </div>
             </div>
-            
-            <div className="flex gap-2">
-              <Button
-                onClick={() => fetchTrendingTopics(true)}
-                disabled={loading}
-                className="gap-2"
-                variant="default"
-              >
-                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-                Refresh
-              </Button>
-              
-              {Object.keys(dataCache).length > 0 && (
+
+            <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
+              <div className="flex items-center gap-3 rounded-2xl border border-gray-800 bg-gray-950/70 px-4 py-3">
+                <Switch
+                  id="components"
+                  checked={analyzeComponents}
+                  onCheckedChange={setAnalyzeComponents}
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="components" className="text-xs font-semibold uppercase tracking-widest text-gray-300">
+                    Component Analysis
+                  </Label>
+                  <p className="text-xs text-gray-500">
+                    Highlight aspect-level sentiment
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
                 <Button
-                  onClick={() => {
-                    setDataCache({});
-                    setTrendingData(null);
-                    toast({
-                      title: "🗑️ Cache Cleared",
-                      description: "All cached data has been removed",
-                    });
-                  }}
+                  onClick={() => fetchTrendingTopics(true)}
                   disabled={loading}
-                  variant="outline"
-                  className="gap-2"
+                  className="gap-2 rounded-xl bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white shadow-lg shadow-orange-500/30 transition hover:from-orange-600 hover:via-red-600 hover:to-pink-600"
                 >
-                  Clear Cache ({Object.keys(dataCache).length})
+                  <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                  Refresh
                 </Button>
-              )}
+
+                {Object.keys(dataCache).length > 0 && (
+                  <Button
+                    onClick={() => {
+                      setDataCache({});
+                      setTrendingData(null);
+                      toast({
+                        title: "🗑️ Cache Cleared",
+                        description: "All cached data has been removed",
+                      });
+                    }}
+                    disabled={loading}
+                    variant="outline"
+                    className="gap-2 rounded-xl border-orange-500/40 bg-orange-500/10 text-orange-200 hover:bg-orange-500/20"
+                  >
+                    Clear Cache ({Object.keys(dataCache).length})
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
         {/* Category Tabs */}
-        <Tabs 
-          value={selectedCategory} 
+        <Tabs
+          value={selectedCategory}
           onValueChange={setSelectedCategory}
         >
-          <TabsList className="grid grid-cols-7 w-full">
+          <TabsList className="grid w-full grid-cols-2 gap-2 rounded-2xl border border-gray-800 bg-gray-900/60 p-2 sm:grid-cols-4 lg:grid-cols-7">
             {categories.map((cat) => (
-              <TabsTrigger key={cat.value} value={cat.value} className="gap-1">
-                <span>{cat.icon}</span>
-                <span className="hidden sm:inline">{cat.label}</span>
+              <TabsTrigger
+                key={cat.value}
+                value={cat.value}
+                className="gap-2 rounded-xl border border-transparent px-3 py-2 text-sm font-medium text-gray-400 transition hover:text-gray-200 data-[state=active]:border-orange-500/40 data-[state=active]:bg-orange-500/10 data-[state=active]:text-orange-200"
+              >
+                <span className="text-lg">{cat.icon}</span>
+                <span className="hidden lg:inline">{cat.label}</span>
               </TabsTrigger>
             ))}
           </TabsList>
@@ -346,7 +366,7 @@ const TrendingAnalysis = () => {
             {loading && (
               <div className="space-y-4">
                 {[1, 2, 3].map((i) => (
-                  <Card key={i}>
+                  <Card key={i} className="border border-gray-800 bg-gray-900/50">
                     <CardHeader>
                       <Skeleton className="h-6 w-3/4" />
                       <Skeleton className="h-4 w-1/2 mt-2" />
@@ -372,65 +392,65 @@ const TrendingAnalysis = () => {
               <div className="space-y-6">
                 {/* Cache Status Badge */}
                 {dataCache[selectedCategory] && (
-                  <div className="flex items-center justify-end gap-2 text-sm text-muted-foreground">
-                    <Badge variant="secondary" className="gap-1">
+                  <div className="flex items-center justify-end gap-2 text-sm text-gray-400">
+                    <Badge className="gap-1 border border-emerald-500/40 bg-emerald-500/10 text-emerald-200">
                       📦 Cached Data
                     </Badge>
-                    <span className="text-xs">
-                      Click Refresh to fetch latest
+                    <span className="text-xs text-gray-500">
+                      Click refresh to fetch latest
                     </span>
                   </div>
                 )}
 
                 {/* Stats Overview */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <Card>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                  <Card className="rounded-2xl border border-gray-800 bg-gray-900/60 backdrop-blur-sm">
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium">
+                      <CardTitle className="text-sm font-medium text-gray-400">
                         Topics Found
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">
+                      <div className="text-3xl font-semibold text-white">
                         {trendingData.total_topics_found}
                       </div>
                     </CardContent>
                   </Card>
 
-                  <Card>
+                  <Card className="rounded-2xl border border-gray-800 bg-gray-900/60 backdrop-blur-sm">
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium">
+                      <CardTitle className="text-sm font-medium text-gray-400">
                         Time Window
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">
+                      <div className="text-3xl font-semibold text-white">
                         {trendingData.time_window_hours}h
                       </div>
                     </CardContent>
                   </Card>
 
-                  <Card>
+                  <Card className="rounded-2xl border border-gray-800 bg-gray-900/60 backdrop-blur-sm">
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium">
+                      <CardTitle className="text-sm font-medium text-gray-400">
                         Category
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold capitalize">
+                      <div className="text-2xl font-semibold capitalize text-white">
                         {trendingData.category}
                       </div>
                     </CardContent>
                   </Card>
 
-                  <Card>
+                  <Card className="rounded-2xl border border-gray-800 bg-gray-900/60 backdrop-blur-sm">
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium">
+                      <CardTitle className="text-sm font-medium text-gray-400">
                         Last Updated
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-sm font-medium">
+                      <div className="text-sm font-medium text-gray-200">
                         {new Date(trendingData.analysis_time).toLocaleTimeString()}
                       </div>
                     </CardContent>
@@ -454,10 +474,10 @@ const TrendingAnalysis = () => {
 
             {/* Empty State */}
             {!trendingData && !loading && !error && (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <TrendingUp className="h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">
+              <Card className="rounded-3xl border border-gray-800 bg-gray-900/60 backdrop-blur">
+                <CardContent className="flex flex-col items-center justify-center py-12 text-gray-300">
+                  <TrendingUp className="mb-4 h-12 w-12 text-orange-400" />
+                  <p className="text-sm text-gray-400">
                     Click refresh to discover trending topics
                   </p>
                 </CardContent>
@@ -490,37 +510,37 @@ const TrendingTopicCard = ({
   const percentages = calculateSentimentPercentages(sentiment_analysis);
 
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-      <CardHeader className="bg-gradient-to-r from-slate-50 to-gray-50">
-        <div className="flex items-start justify-between">
+    <Card className="overflow-hidden rounded-3xl border border-gray-800 bg-gray-950/60 backdrop-blur transition-all duration-300 hover:border-orange-500/40 hover:shadow-[0_30px_80px_rgba(255,115,50,0.25)]">
+      <CardHeader className="border-b border-gray-800/60 bg-gradient-to-r from-gray-950/90 via-gray-900/70 to-gray-900/50">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              {/* Enhanced Rank Badge */}
+            <div className="mb-3 flex items-center gap-3">
               <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full blur-sm opacity-75"></div>
-                <Badge className="relative bg-gradient-to-br from-yellow-500 to-orange-600 text-white border-0 text-lg font-bold px-4 py-2 shadow-lg">
+                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-orange-400 to-pink-600 opacity-60 blur-lg" />
+                <Badge className="relative rounded-full border border-orange-500/40 bg-orange-500/20 px-4 py-2 text-base font-semibold text-orange-100 shadow-lg shadow-orange-500/30">
                   #{topic_info.rank}
                 </Badge>
               </div>
-              <CardTitle className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+              <CardTitle className="text-3xl font-semibold leading-tight bg-gradient-to-r from-white via-orange-100 to-pink-100 bg-clip-text text-transparent">
                 {topic_info.topic}
               </CardTitle>
             </div>
-            
             {topic_info.variants && topic_info.variants.length > 1 && (
-              <CardDescription className="ml-16">
-                <span className="text-sm">Also known as:</span> {topic_info.variants.filter(v => v !== topic_info.topic).join(", ")}
+              <CardDescription className="ml-16 text-sm text-gray-400">
+                <span className="text-gray-500">Also known as:</span> {topic_info.variants
+                  .filter((v) => v !== topic_info.topic)
+                  .join(", ")}
               </CardDescription>
             )}
           </div>
 
-          <div className="flex flex-col items-end gap-2">
-            <Badge className="bg-gradient-to-r from-orange-500 to-red-500 text-white border-0 text-sm px-3 py-1 shadow-md">
-              <Flame className="h-3 w-3 mr-1" />
+          <div className="flex flex-col items-start gap-2 text-sm md:items-end">
+            <Badge className="flex items-center gap-1 rounded-full border border-orange-500/40 bg-orange-500/15 px-3 py-1 text-sm font-medium text-orange-100 shadow-lg shadow-orange-500/20">
+              <Flame className="h-3 w-3" />
               {topic_info.trending_strength.toFixed(0)}% Hot
             </Badge>
             {topic.trending_duration_hours && (
-              <Badge variant="outline" className="gap-1 bg-white">
+              <Badge variant="outline" className="flex items-center gap-1 rounded-full border border-gray-700 bg-gray-900/70 text-gray-300">
                 <Clock className="h-3 w-3" />
                 Active {topic.trending_duration_hours.toFixed(1)}h
               </Badge>
@@ -529,121 +549,116 @@ const TrendingTopicCard = ({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-6 mt-6">
+      <CardContent className="space-y-8 p-6 sm:p-8">
         {/* Trending Strength Visualization */}
-        <div className="relative p-6 rounded-xl bg-gradient-to-br from-orange-50 to-red-50 border border-orange-200">
-          <div className="flex items-center justify-between mb-4">
+        <div className="relative overflow-hidden rounded-2xl border border-orange-500/30 bg-gradient-to-br from-orange-500/15 via-orange-500/5 to-red-500/15 p-6">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-gradient-to-br from-orange-500 to-red-500 rounded-full">
+              <div className="rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 p-3">
                 <Flame className="h-6 w-6 text-white" />
               </div>
               <div>
-                <p className="text-lg font-bold text-gray-900">Trending Strength</p>
-                <p className="text-sm text-gray-600">Popularity momentum</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-orange-200">Trending Strength</p>
+                <p className="text-sm text-orange-100/80">Popularity momentum</p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+              <p className="text-4xl font-semibold text-orange-100">
                 {topic_info.trending_strength.toFixed(0)}%
               </p>
               {topic.trending_duration_hours && (
-                <p className="text-xs text-gray-600 flex items-center gap-1 justify-end">
+                <p className="mt-1 flex items-center justify-end gap-1 text-xs text-orange-100/70">
                   <Clock className="h-3 w-3" />
                   Active for {topic.trending_duration_hours.toFixed(1)}h
                 </p>
               )}
             </div>
           </div>
-          <div className="w-full bg-white/50 rounded-full h-3 overflow-hidden">
-            <div 
-              className="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full transition-all duration-500 flex items-center justify-end pr-2"
+          <div className="mt-4 h-3 w-full overflow-hidden rounded-full bg-gray-900/80">
+            <div
+              className="flex h-full items-center justify-end rounded-full bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 pr-2 transition-all duration-500"
               style={{ width: `${Math.min(topic_info.trending_strength, 100)}%` }}
             >
               {topic_info.trending_strength > 20 && (
-                <Zap className="h-3 w-3 text-white animate-pulse" />
+                <Zap className="h-3 w-3 text-orange-100 animate-pulse" />
               )}
             </div>
           </div>
         </div>
 
-        {/* Metrics Grid - Enhanced */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {/* Posts */}
-          <div className="p-4 rounded-lg bg-blue-50 border border-blue-200">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-2 bg-blue-500 rounded-lg">
-                <MessageSquare className="h-4 w-4 text-white" />
+        {/* Metrics Grid */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 shadow-inner shadow-blue-500/10">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="rounded-xl bg-blue-500/60 p-2">
+                <MessageSquare className="h-4 w-4 text-blue-100" />
               </div>
-              <p className="text-sm font-medium text-blue-900">Posts</p>
+              <p className="text-sm font-medium text-blue-100">Posts</p>
             </div>
-            <p className="text-2xl font-bold text-blue-900">{topic_info.post_count}</p>
-            <p className="text-xs text-blue-700 mt-1">Total discussions</p>
+            <p className="text-2xl font-semibold text-white">{topic_info.post_count}</p>
+            <p className="mt-1 text-xs text-blue-100/70">Total discussions</p>
           </div>
 
-          {/* Score */}
-          <div className="p-4 rounded-lg bg-purple-50 border border-purple-200">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-2 bg-purple-500 rounded-lg">
-                <BarChart3 className="h-4 w-4 text-white" />
+          <div className="rounded-2xl border border-purple-500/30 bg-purple-500/10 p-4 shadow-inner shadow-purple-500/10">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="rounded-xl bg-purple-500/60 p-2">
+                <BarChart3 className="h-4 w-4 text-purple-100" />
               </div>
-              <p className="text-sm font-medium text-purple-900">Score</p>
+              <p className="text-sm font-medium text-purple-100">Score</p>
             </div>
-            <p className="text-2xl font-bold text-purple-900">{topic_info.total_score.toLocaleString()}</p>
-            <p className="text-xs text-purple-700 mt-1">Total upvotes</p>
+            <p className="text-2xl font-semibold text-white">{topic_info.total_score.toLocaleString()}</p>
+            <p className="mt-1 text-xs text-purple-100/70">Total upvotes</p>
           </div>
 
-          {/* Comments */}
-          <div className="p-4 rounded-lg bg-pink-50 border border-pink-200">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-2 bg-pink-500 rounded-lg">
-                <MessageSquare className="h-4 w-4 text-white" />
+          <div className="rounded-2xl border border-pink-500/30 bg-pink-500/10 p-4 shadow-inner shadow-pink-500/10">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="rounded-xl bg-pink-500/60 p-2">
+                <MessageSquare className="h-4 w-4 text-pink-100" />
               </div>
-              <p className="text-sm font-medium text-pink-900">Comments</p>
+              <p className="text-sm font-medium text-pink-100">Comments</p>
             </div>
-            <p className="text-2xl font-bold text-pink-900">{topic_info.total_comments.toLocaleString()}</p>
-            <p className="text-xs text-pink-700 mt-1">Total engagements</p>
+            <p className="text-2xl font-semibold text-white">{topic_info.total_comments.toLocaleString()}</p>
+            <p className="mt-1 text-xs text-pink-100/70">Total engagements</p>
           </div>
 
-          {/* Velocity */}
-          <div className="p-4 rounded-lg bg-amber-50 border border-amber-200">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-2 bg-amber-500 rounded-lg">
-                <TrendingUp className="h-4 w-4 text-white" />
+          <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 shadow-inner shadow-amber-500/10">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="rounded-xl bg-amber-500/60 p-2">
+                <TrendingUp className="h-4 w-4 text-amber-100" />
               </div>
-              <p className="text-sm font-medium text-amber-900">Velocity</p>
+              <p className="text-sm font-medium text-amber-100">Velocity</p>
             </div>
-            <p className="text-2xl font-bold text-amber-900">{topic_info.avg_velocity.toFixed(1)}</p>
-            <p className="text-xs text-amber-700 mt-1">Engagement/hour</p>
+            <p className="text-2xl font-semibold text-white">{topic_info.avg_velocity.toFixed(1)}</p>
+            <p className="mt-1 text-xs text-amber-100/70">Engagement/hour</p>
           </div>
         </div>
 
         {/* Subreddits */}
         <div>
-          <p className="text-sm font-medium mb-2 flex items-center gap-2">
-            <Users className="h-4 w-4" />
+          <p className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-300">
+            <Users className="h-4 w-4 text-gray-400" />
             Trending in {topic_info.subreddit_count} subreddit(s)
           </p>
           <div className="flex flex-wrap gap-2">
             {topic_info.subreddits.map((sub) => (
-              <Badge key={sub} variant="secondary">
+              <Badge key={sub} className="border border-gray-700 bg-gray-900/70 text-gray-300">
                 r/{sub}
               </Badge>
             ))}
           </div>
         </div>
 
-        <Separator />
+        <Separator className="border-gray-800" />
 
         {/* Sentiment Analysis with Pie Chart */}
         <div>
-          <p className="text-sm font-medium mb-3 flex items-center gap-2">
-            <Activity className="h-4 w-4" />
+          <p className="mb-3 flex items-center gap-2 text-sm font-medium text-gray-300">
+            <Activity className="h-4 w-4 text-orange-300" />
             Sentiment Distribution
           </p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Pie Chart */}
-            <div className="h-64 flex items-center justify-center">
+
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="flex h-64 items-center justify-center">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -657,73 +672,75 @@ const TrendingTopicCard = ({
                     labelLine={false}
                     label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                     outerRadius={80}
-                    fill="#8884d8"
                     dataKey="value"
                   >
                     {[0, 1, 2].map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#0f172a",
+                      borderRadius: "0.75rem",
+                      border: "1px solid rgba(148,163,184,0.3)",
+                      color: "#e2e8f0",
+                    }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </div>
 
-            {/* Stats Cards */}
             <div className="space-y-3">
-              {/* Positive */}
-              <div className="p-4 rounded-lg bg-green-50 border border-green-200">
+              <div className="rounded-2xl border border-green-500/30 bg-green-500/10 p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="p-2 bg-green-500 rounded-full">
-                      <ThumbsUp className="h-4 w-4 text-white" />
+                    <div className="rounded-full bg-green-500/60 p-2">
+                      <ThumbsUp className="h-4 w-4 text-green-100" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-green-900">Positive</p>
-                      <p className="text-xs text-green-700">Optimistic responses</p>
+                      <p className="text-sm font-medium text-green-100">Positive</p>
+                      <p className="text-xs text-green-100/70">Optimistic responses</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-green-900">{sentiment_analysis.positive}</p>
-                    <p className="text-xs text-green-700">{percentages.positive.toFixed(1)}%</p>
+                    <p className="text-2xl font-semibold text-white">{sentiment_analysis.positive}</p>
+                    <p className="text-xs text-green-100/70">{percentages.positive.toFixed(1)}%</p>
                   </div>
                 </div>
               </div>
 
-              {/* Negative */}
-              <div className="p-4 rounded-lg bg-red-50 border border-red-200">
+              <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="p-2 bg-red-500 rounded-full">
-                      <ThumbsDown className="h-4 w-4 text-white" />
+                    <div className="rounded-full bg-red-500/60 p-2">
+                      <ThumbsDown className="h-4 w-4 text-red-100" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-red-900">Negative</p>
-                      <p className="text-xs text-red-700">Critical responses</p>
+                      <p className="text-sm font-medium text-red-100">Negative</p>
+                      <p className="text-xs text-red-100/70">Critical responses</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-red-900">{sentiment_analysis.negative}</p>
-                    <p className="text-xs text-red-700">{percentages.negative.toFixed(1)}%</p>
+                    <p className="text-2xl font-semibold text-white">{sentiment_analysis.negative}</p>
+                    <p className="text-xs text-red-100/70">{percentages.negative.toFixed(1)}%</p>
                   </div>
                 </div>
               </div>
 
-              {/* Neutral */}
-              <div className="p-4 rounded-lg bg-gray-50 border border-gray-200">
+              <div className="rounded-2xl border border-gray-500/30 bg-gray-500/10 p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="p-2 bg-gray-500 rounded-full">
-                      <Minus className="h-4 w-4 text-white" />
+                    <div className="rounded-full bg-gray-500/60 p-2">
+                      <Minus className="h-4 w-4 text-gray-100" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">Neutral</p>
-                      <p className="text-xs text-gray-700">Balanced responses</p>
+                      <p className="text-sm font-medium text-gray-200">Neutral</p>
+                      <p className="text-xs text-gray-300/70">Balanced responses</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-gray-900">{sentiment_analysis.neutral}</p>
-                    <p className="text-xs text-gray-700">{percentages.neutral.toFixed(1)}%</p>
+                    <p className="text-2xl font-semibold text-white">{sentiment_analysis.neutral}</p>
+                    <p className="text-xs text-gray-300/70">{percentages.neutral.toFixed(1)}%</p>
                   </div>
                 </div>
               </div>
@@ -734,31 +751,29 @@ const TrendingTopicCard = ({
         {/* Component Analysis */}
         {component_analysis && component_analysis.length > 0 && (
           <>
-            <Separator />
+            <Separator className="border-gray-800" />
             <div>
-              <p className="text-sm font-medium mb-3 flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
+              <p className="mb-3 flex items-center gap-2 text-sm font-medium text-gray-300">
+                <Sparkles className="h-4 w-4 text-orange-300" />
                 Component Analysis
               </p>
               <div className="grid gap-3">
                 {component_analysis.map((comp, idx) => (
                   <div
                     key={idx}
-                    className={`p-3 rounded-lg border ${getSentimentColor(comp.sentiment)}`}
+                    className={`rounded-2xl border p-3 ${getSentimentColor(comp.sentiment)}`}
                   >
-                    <div className="flex items-start justify-between mb-1">
-                      <div className="flex items-center gap-2">
+                    <div className="mb-2 flex items-start justify-between">
+                      <div className="flex items-center gap-2 text-sm text-gray-200">
                         {getSentimentIcon(comp.sentiment)}
                         <span className="font-medium capitalize">{comp.component}</span>
                       </div>
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="outline" className="rounded-full border border-gray-700 bg-gray-900/70 text-xs text-gray-300">
                         {comp.confidence} confidence
                       </Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">{comp.summary}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      ~{comp.mention_count} mentions
-                    </p>
+                    <p className="text-sm text-gray-300">{comp.summary}</p>
+                    <p className="mt-1 text-xs text-gray-500">~{comp.mention_count} mentions</p>
                   </div>
                 ))}
               </div>
@@ -769,28 +784,31 @@ const TrendingTopicCard = ({
         {/* Sample Posts */}
         {sample_posts && sample_posts.length > 0 && (
           <>
-            <Separator />
+            <Separator className="border-gray-800" />
             <div>
-              <p className="text-sm font-medium mb-3">Top Posts</p>
+              <p className="mb-3 text-sm font-medium text-gray-300">Top Posts</p>
               <ScrollArea className="h-48">
-                <div className="space-y-2">
+                <div className="space-y-2 pr-2">
                   {sample_posts.slice(0, 5).map((post, idx) => (
-                    <div key={idx} className="p-3 bg-muted/50 rounded-lg space-y-1">
+                    <div
+                      key={idx}
+                      className="space-y-2 rounded-2xl border border-gray-800 bg-gray-900/60 p-4 transition hover:border-orange-500/30"
+                    >
                       <div className="flex items-start justify-between gap-2">
                         <a
                           href={post.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm font-medium hover:underline flex-1 line-clamp-2"
+                          className="flex-1 text-sm font-medium text-gray-100 hover:text-orange-200 hover:underline"
                         >
                           {post.title}
                         </a>
-                        <ExternalLink className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                        <ExternalLink className="h-3 w-3 flex-shrink-0 text-orange-300" />
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-3 text-xs text-gray-400">
                         <Badge
                           variant="outline"
-                          className={`text-xs ${getSentimentColor(post.sentiment)}`}
+                          className={`rounded-full border px-2 py-0.5 text-xs uppercase tracking-wide ${getSentimentColor(post.sentiment)}`}
                         >
                           {post.sentiment}
                         </Badge>
