@@ -7,21 +7,6 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Backend
-backend/venv/
-backend/.env
-backend/__pycache__/
-chabot_api/__pycache__/
-chatbot_api/venv/
-chatbot_api/.env
-chatbot_api/dist/
-chatbot_api/.venv/
-# Frontend
-frontend/node_modules/
-frontend/dist/
-frontend/.env
-frontend/.vite/
-
 node_modules
 dist
 dist-ssr
@@ -37,8 +22,3 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-venv/
-.env
-__pycache__/
-.venv/
-**/venv/
