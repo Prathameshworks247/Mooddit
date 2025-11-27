@@ -1,4 +1,4 @@
-# Reddit Sentiment Analysis Platform 🚀
+# MOODDIT 🚀
 
 A full-stack application for analyzing Reddit sentiment with AI-powered insights, trend predictions, and real-time visualization.
 
