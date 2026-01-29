@@ -627,7 +627,10 @@ async def ask_question_about_sentiment(request: RAGRequest):
         posts_df = fetch_reddit_posts(request.query, limit=request.limit)
         
         if posts_df.empty:
-            raise HTTPException(status_code=404, detail="No posts found for the given query")
+            raise HTTPException(
+                status_code=404,
+                detail="No posts found for the given query. Reddit may be rate-limiting; try again in a few minutes.",
+            )
         
         posts_df["created_utc"] = pd.to_datetime(posts_df["created_utc"], unit="s")
         
@@ -637,8 +640,8 @@ async def ask_question_about_sentiment(request: RAGRequest):
         
         if filtered_df.empty:
             raise HTTPException(
-                status_code=404, 
-                detail=f"No posts found in the last {request.time_window_hours} hours"
+                status_code=404,
+                detail=f"No posts found in the last {request.time_window_hours} hours. Try a longer time window or different query.",
             )
         
         # Step 2: Sentiment analysis

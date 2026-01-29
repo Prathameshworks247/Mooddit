@@ -212,8 +212,21 @@ const Main = () => {
           },
         ]);
         setPosts((response.data as { source_posts: Post[] }).source_posts);
-      } catch (e) {
-        console.error(e);
+      } catch (e: unknown) {
+        const msg =
+          axios.isAxiosError(e) && e.response?.data?.detail
+            ? typeof e.response.data.detail === "string"
+              ? e.response.data.detail
+              : "Request failed"
+            : "Failed to load. Try again in a few minutes.";
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: `Sorry, ${msg}`,
+          },
+        ]);
       } finally {
         setLoading(false);
       }
@@ -249,8 +262,21 @@ const Main = () => {
           first: false,
         },
       ]);
-    } catch (e) {
-      console.error(e);
+    } catch (e: unknown) {
+      const msg =
+        axios.isAxiosError(e) && e.response?.data?.detail
+          ? typeof e.response.data.detail === "string"
+            ? e.response.data.detail
+            : "Request failed"
+          : "Something went wrong. Try again.";
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: `Sorry, ${msg}`,
+        },
+      ]);
     } finally {
       setLoading(false);
     }

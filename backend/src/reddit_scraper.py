@@ -2,9 +2,13 @@ import requests
 import pandas as pd
 import time
 
+# Reddit requires a descriptive, unique User-Agent or returns 403
+REDDIT_USER_AGENT = "Mooddit:RedditSentiment:1.0 (sentiment analysis; https://github.com/Prathameshworks247/Mooddit)"
+
+
 def fetch_reddit_posts(query, limit=100):
     base_url = "https://www.reddit.com/search.json"
-    headers = {"User-agent": "Mozilla/5.0"}
+    headers = {"User-Agent": REDDIT_USER_AGENT}
     params = {"q": query, "sort": "new", "limit": 100}
     all_posts = []
 
