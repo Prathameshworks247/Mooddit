@@ -43,9 +43,7 @@ import {
   LineChart,
   Line,
 } from "recharts";
-
-// API Base URL - change this to match your backend
-const API_BASE_URL = "http://localhost:8000";
+import { getApiBaseUrl } from "@/lib/api";
 
 // Chart Colors
 const CHART_COLORS = {
@@ -158,7 +156,7 @@ const TrendingAnalysis = () => {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/trending/analyze`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/trending/analyze`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -31,10 +31,10 @@ RUN mkdir -p data/processed data/raw
 # Expose port
 EXPOSE 8000
 
-# Health check
+# Health check (exit 0 if healthy)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/health')"
+    CMD python -c "import requests; r=requests.get('http://localhost:8000/health'); exit(0 if r.ok else 1)"
 
-# Run the application
+# Run the application (single worker for ML model compatibility)
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 

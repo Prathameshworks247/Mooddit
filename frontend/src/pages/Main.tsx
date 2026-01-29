@@ -29,6 +29,7 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useLocation } from "react-router-dom";
 import axios from "axios";
+import { getApiBaseUrl } from "@/lib/api";
 
 interface Message {
   id: string;
@@ -187,7 +188,7 @@ const Main = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await axios.post("http://localhost:8000/api/rag", {
+        const response = await axios.post(`${getApiBaseUrl()}/api/rag`, {
           query: prompt,
           question: ".",
           limit: 100,
@@ -235,7 +236,7 @@ const Main = () => {
     setInput("");
     setLoading(true);
     try {
-      const response = await axios.post("http://localhost:8000/api/rag", {
+      const response = await axios.post(`${getApiBaseUrl()}/api/rag`, {
         query: prompt,
         question: input,
       });
@@ -259,7 +260,7 @@ const Main = () => {
     setLoadingPrediction(true);
     setShowPredictionModal(true);
     try {
-      const response = await axios.post("http://localhost:8000/api/predict", {
+      const response = await axios.post(`${getApiBaseUrl()}/api/predict`, {
         query: prompt,
         time_window_hours: 48,
         hours_ahead: 12,
@@ -280,7 +281,7 @@ const Main = () => {
 
     setLoadingCharts(true);
     try {
-      const response = await axios.post("http://localhost:8000/api/charts", {
+      const response = await axios.post(`${getApiBaseUrl()}/api/charts`, {
         query: prompt,
         limit: 300,
         time_window_hours: 48,

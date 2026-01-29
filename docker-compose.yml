@@ -1,0 +1,38 @@
+# Full-stack deployment: backend API + frontend (nginx)
+# Usage: from repo root, run: docker compose up --build
+
+services:
+  backend:
+    build: ./backend
+    container_name: mooddit-api
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    volumes:
+      - backend_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; r=requests.get('http://localhost:8000/health'); exit(0 if r.ok else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Point frontend to backend URL as seen by the browser (not container hostname)
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    container_name: mooddit-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  backend_data:

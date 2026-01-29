@@ -1,0 +1,76 @@
+DEPLOYMENT GUIDE - Mooddit (Reddit Sentiment Analysis)
+
+=== OPTION 1: Docker Compose (easiest, same machine) ===
+
+1. From repo root, create backend/.env with your Gemini API key:
+   GEMINI_API_KEY=your_actual_key
+
+2. (Optional) To change the API URL the frontend calls (e.g. if backend is on another host):
+   Create .env in repo root with:
+   VITE_API_URL=https://your-api.example.com
+   For local Docker, use: VITE_API_URL=http://localhost:8000
+
+3. Build and run:
+   docker compose up --build
+
+4. Open http://localhost (frontend) and http://localhost:8000 (API docs).
+
+5. Stop:
+   docker compose down
+
+
+=== OPTION 2: Backend and frontend on different hosts ===
+
+BACKEND (e.g. Railway, Render, Fly.io, VPS):
+
+1. Build and run the backend container, or run without Docker:
+   cd backend
+   pip install -r requirements.txt
+   export GEMINI_API_KEY=your_key
+   uvicorn main:app --host 0.0.0.0 --port 8000
+
+2. Set CORS: Backend already allows all origins. For production you can restrict by setting
+   allow_origins in main.py to your frontend URL(s).
+
+3. Expose the backend URL (e.g. https://mooddit-api.railway.app).
+
+FRONTEND (e.g. Vercel, Netlify, or static hosting):
+
+1. Set build-time env var:
+   VITE_API_URL=https://your-backend-url.com
+
+2. Build:
+   cd frontend
+   npm run build
+
+3. Deploy the contents of frontend/dist to your host.
+   - Vercel/Netlify: connect repo, set VITE_API_URL in project env, build command: npm run build, output: dist
+   - Or build locally with VITE_API_URL and upload dist.
+
+
+=== OPTION 3: Backend only (Docker) ===
+
+cd backend
+cp .env.example .env   # edit .env, set GEMINI_API_KEY
+docker compose up --build
+
+API: http://localhost:8000
+Docs: http://localhost:8000/docs
+
+
+=== OPTION 4: Frontend only (Docker, expects backend elsewhere) ===
+
+cd frontend
+docker build --build-arg VITE_API_URL=https://your-api.com -t mooddit-frontend .
+docker run -p 80:80 mooddit-frontend
+
+Open http://localhost
+
+
+=== ENV SUMMARY ===
+
+Backend:
+  GEMINI_API_KEY  - Required for RAG / component analysis (get from Google AI Studio)
+
+Frontend (build time):
+  VITE_API_URL    - Backend API URL (default http://localhost:8000)
