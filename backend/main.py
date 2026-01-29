@@ -6,7 +6,7 @@ import os
 import pandas as pd
 from datetime import datetime, timedelta
 from src.reddit_scraper import fetch_reddit_posts
-from src.sentiment_analysis import analyze_sentiment
+from src.sentiment_analysis import analyze_sentiment, SENTIMENT_BACKEND
 from src.trending_discovery import get_trending_by_category, get_trending_posts_with_scores
 from src.topic_extractor import extract_top_trending_topics
 from src.sentiment_predictor import predict_sentiment
@@ -259,7 +259,8 @@ async def root():
             "trending_discovery": True,
             "sentiment_prediction": True
         },
-        "gemini_configured": gemini_model is not None
+        "gemini_configured": gemini_model is not None,
+        "sentiment_backend": SENTIMENT_BACKEND
     }
 
 @app.get("/health")
