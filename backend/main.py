@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict
 import os
+import traceback
 import pandas as pd
 from datetime import datetime, timedelta
 from src.reddit_scraper import fetch_reddit_posts
@@ -689,9 +690,13 @@ async def ask_question_about_sentiment(request: RAGRequest):
         ]
         
         for idx, row in sample_posts.iterrows():
+            selftext = row.get("selftext") if hasattr(row, "get") else getattr(row, "selftext", "")
+            if selftext is None or (isinstance(selftext, float) and pd.isna(selftext)):
+                selftext = ""
+            selftext_snippet = f"- {str(selftext)[:200]}..." if selftext else ""
             context_parts.append(
                 f"- [{row['sentiment_normalized'].upper()}] (Score: {row['score']}) \"{row['title']}\" "
-                f"{f'- {row['selftext'][:200]}...' if row['selftext'] else ''}"
+                f"{selftext_snippet}"
             )
         
         context = "\n".join(context_parts)
@@ -704,9 +709,11 @@ async def ask_question_about_sentiment(request: RAGRequest):
         if request.conversation_history and len(request.conversation_history) > 0:
             conversation_context = "\n\nPrevious Conversation Context:\n"
             for i, turn in enumerate(request.conversation_history[-3:], 1):  # Keep last 3 turns
-                conversation_context += f"\nQ{i}: {turn.question}\nA{i}: {turn.answer[:300]}...\n"
+                q = (turn.question or "")[:500]
+                a = (turn.answer or "")[:300]
+                conversation_context += f"\nQ{i}: {q}\nA{i}: {a}...\n"
                 if turn.components:
-                    conversation_context += f"Components discussed: {', '.join(turn.components)}\n"
+                    conversation_context += f"Components discussed: {', '.join(str(c) for c in turn.components)}\n"
             conversation_context += "\n[Use this context to understand follow-up questions and maintain conversation continuity]\n"
         
         prompt = f"""You are a Reddit sentiment analysis assistant. Based on the following Reddit data, please answer the user's question with detailed component-wise sentiment analysis.
@@ -740,7 +747,11 @@ Answer:"""
         
         try:
             response = gemini_model.generate_content(prompt)
-            full_response = response.text
+            try:
+                full_response = response.text or ""
+            except (ValueError, AttributeError) as text_err:
+                # Blocked/empty or unsupported response
+                full_response = f"[Response not available: {getattr(text_err, 'message', str(text_err))}]"
             confidence = "high" if len(sample_posts) >= 20 else "medium" if len(sample_posts) >= 10 else "low"
             
             # Parse component analysis from response
@@ -776,17 +787,21 @@ Answer:"""
         # Step 5: Prepare source posts if requested
         source_posts = None
         if request.include_context:
-            source_posts = [
-                SourcePost(
-                    title=row["title"],
-                    url=row["url"],
-                    sentiment=row["sentiment_normalized"],
-                    selftext=row["selftext"],
-                    score=int(row["score"]),
-                    created_utc=row["created_utc"].isoformat()
-                )
-                for _, row in sample_posts.head(10).iterrows()
-            ]
+            source_posts = []
+            for _, row in sample_posts.head(10).iterrows():
+                selftext_val = row.get("selftext", "") if hasattr(row, "get") else getattr(row, "selftext", "")
+                if selftext_val is None or (isinstance(selftext_val, float) and pd.isna(selftext_val)):
+                    selftext_val = ""
+                created = row["created_utc"]
+                created_str = created.isoformat() if hasattr(created, "isoformat") else str(created)
+                source_posts.append(SourcePost(
+                    title=str(row["title"] or ""),
+                    url=str(row["url"] or ""),
+                    sentiment=str(row["sentiment_normalized"] or "neutral"),
+                    selftext=str(selftext_val),
+                    score=int(row["score"]) if row["score"] is not None and not (isinstance(row["score"], float) and pd.isna(row["score"])) else 0,
+                    created_utc=created_str,
+                ))
         
         # Calculate time range
         first_post = filtered_df["created_utc"].min()
@@ -821,6 +836,7 @@ Answer:"""
     except HTTPException:
         raise
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.post("/api/trending/analyze", response_model=TrendingResponse)

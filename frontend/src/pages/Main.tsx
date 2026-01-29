@@ -190,17 +190,10 @@ const Main = () => {
         setLoading(true);
         const response = await axios.post(`${getApiBaseUrl()}/api/rag`, {
           query: prompt,
-          question: ".",
+          question: "Summarize the overall sentiment and key points from the Reddit posts.",
           limit: 100,
           time_window_hours: 48,
           include_context: true,
-          conversation_history: [
-            {
-              question: "string",
-              answer: "string",
-              components: ["string"],
-            },
-          ],
         });
         setMessages((prev) => [
           ...prev,
