@@ -19,11 +19,10 @@ load_dotenv()
 
 # Configure Gemini
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")  # e.g. gemini-2.5-flash, gemini-2.0-flash
 if GEMINI_API_KEY and GEMINI_API_KEY != "your_gemini_api_key_here":
     genai.configure(api_key=GEMINI_API_KEY)
-    # Use Gemini 1.5 Flash (fastest free model)
-    # Updated model name for current API
-    gemini_model = genai.GenerativeModel('gemini-2.0-flash-exp')
+    gemini_model = genai.GenerativeModel(GEMINI_MODEL)
 else:
     gemini_model = None
 
@@ -829,7 +828,7 @@ Answer:"""
             component_analysis=component_analysis,
             time_range=time_range,
             source_posts=source_posts,
-            model_used="gemini-2.0-flash-exp",
+            model_used=GEMINI_MODEL,
             conversation_turn=current_turn
         )
     
